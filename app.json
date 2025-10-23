@@ -11,6 +11,10 @@
     "ios": {
       "supportsTablet": true
     },
+    "extra": {
+      "SUPABASE_URL": "https://fnmtigfunsyprsbdufji.supabase.co",
+      "SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZubXRpZ2Z1bnN5cHJzYmR1ZmppIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA5NTgyMzYsImV4cCI6MjA3NjUzNDIzNn0.EsZY6WshNbEX8Kpqe51oD8srv0NVufORzgDcZI6fBuc"
+    },
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
