@@ -7,14 +7,14 @@ export default function GlassCard({ children, style }: { children: ReactNode; st
     <View
       style={[
         {
-          backgroundColor: "rgba(255,255,255,0.05)",
+          backgroundColor: theme.colors.surface,
           borderColor: theme.colors.border,
           borderWidth: 1,
           borderRadius: theme.radius.lg,
-          padding: theme.spacing.md,
+          padding: theme.spacing.md
         },
         theme.shadow.card,
-        style,
+        style
       ]}
     >
       {children}

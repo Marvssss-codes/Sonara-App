@@ -1,27 +1,29 @@
 import { useRouter } from "expo-router";
-import { Pressable, View, Text } from "react-native";
+import { Pressable, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { theme } from "../lib/theme";
 
-export default function BackButton({ label = "Back" }: { label?: string }) {
+export default function BackButton() {
   const router = useRouter();
   return (
     <Pressable
       onPress={() => router.back()}
       style={{
         position: "absolute",
-        left: theme.spacing.md,
-        top: theme.spacing.lg,
+        left: 16,
+        top: 14,
         zIndex: 20,
-        flexDirection: "row",
-        alignItems: "center",
-        paddingVertical: 8,
-        paddingHorizontal: 12,
+        width: 40,
+        height: 40,
         borderRadius: 999,
-        backgroundColor: "rgba(255,255,255,0.06)",
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: "rgba(255,255,255,0.08)",
+        borderWidth: 1,
+        borderColor: theme.colors.border
       }}
     >
-      <View style={{ width: 6, height: 6, borderLeftWidth: 2, borderBottomWidth: 2, borderColor: theme.colors.text, transform: [{ rotate: "45deg" }], marginRight: 8 }} />
-      <Text style={{ color: theme.colors.text }}>{label}</Text>
+      <Ionicons name="chevron-back" size={20} color="#fff" />
     </Pressable>
   );
 }
