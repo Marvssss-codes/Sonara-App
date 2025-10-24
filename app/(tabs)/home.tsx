@@ -12,7 +12,6 @@ type ProfileRow = { generation?: string };
 
 export default function Home() {
   const router = useRouter();
-
   const [tracks, setTracks] = useState<AudiusTrack[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
   const [generation, setGeneration] = useState<string>("");
@@ -25,11 +24,7 @@ export default function Home() {
         setUserId(uid);
 
         if (uid) {
-          const { data: prof } = await supa
-            .from("profiles")
-            .select("generation")
-            .eq("id", uid)
-            .single<ProfileRow>();
+          const { data: prof } = await supa.from("profiles").select("generation").eq("id", uid).single<ProfileRow>();
           if (prof?.generation) setGeneration(prof.generation);
         }
 
@@ -44,22 +39,21 @@ export default function Home() {
   return (
     <View style={{ flex: 1, backgroundColor: theme.colors.bg, paddingTop: theme.spacing.lg }}>
       <View style={{ paddingHorizontal: theme.spacing.md, marginBottom: theme.spacing.md }}>
-        <Text style={{ color: theme.colors.text, fontSize: 22, fontWeight: "700" }}>
+        <Text style={{ color: theme.colors.text, fontSize: 24, fontWeight: "900" }}>
           {generation ? `${generation} Picks` : "For Your Generation"}
         </Text>
         <Text style={{ color: theme.colors.textSoft, marginTop: 4 }}>Trending Tracks</Text>
       </View>
 
-      {/* Highlight card like in mock */}
       {tracks[0] && (
         <GlassCard style={{ marginHorizontal: theme.spacing.md, marginBottom: theme.spacing.lg }}>
           <View style={{ flexDirection: "row", alignItems: "center" }}>
             <Image
               source={{ uri: tracks[0].artwork_url || "" }}
-              style={{ width: 64, height: 64, borderRadius: theme.radius.md, backgroundColor: theme.colors.surface2 }}
+              style={{ width: 64, height: 64, borderRadius: theme.radius.md, backgroundColor: theme.colors.card }}
             />
             <View style={{ marginLeft: theme.spacing.md, flex: 1 }}>
-              <Text numberOfLines={1} style={{ color: theme.colors.text, fontWeight: "700" }}>
+              <Text numberOfLines={1} style={{ color: theme.colors.text, fontWeight: "800" }}>
                 {tracks[0].title}
               </Text>
               <Text numberOfLines={1} style={{ color: theme.colors.textSoft }}>
@@ -70,11 +64,7 @@ export default function Home() {
               onPress={() => {}}
               style={{
                 backgroundColor: theme.colors.primary,
-                width: 44,
-                height: 44,
-                borderRadius: 999,
-                alignItems: "center",
-                justifyContent: "center",
+                width: 44, height: 44, borderRadius: 999, alignItems: "center", justifyContent: "center"
               }}
             >
               <Text style={{ color: "#fff", fontWeight: "800" }}>▶︎</Text>
@@ -89,7 +79,7 @@ export default function Home() {
         renderItem={({ item }) => {
           const artist = item?.user?.name || item?.user?.handle || "Unknown artist";
           return (
-            <View style={{ marginHorizontal: theme.spacing.md, marginBottom: 10, borderRadius: theme.radius.lg, overflow: "hidden" }}>
+            <View style={{ marginHorizontal: theme.spacing.md, marginBottom: 10 }}>
               <GlassCard style={{ padding: 0 }}>
                 <SongCard
                   title={item?.title ?? "Untitled"}
