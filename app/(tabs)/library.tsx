@@ -1,9 +1,9 @@
 // app/(tabs)/library.tsx
-import { useEffect, useState } from "react";
-import { View, Text, FlatList, Alert, TextInput, Pressable } from "react-native";
+import { useCallback, useEffect, useState } from "react";
+import { View, Text, FlatList, Alert, TextInput, Pressable, RefreshControl } from "react-native";
 import { supa } from "../../lib/supabase";
 import { listFavorites, listPlaylists, createPlaylist } from "../../lib/db";
-import { Link, useRouter } from "expo-router";
+import { Link, useRouter, useFocusEffect } from "expo-router";
 
 type Fav = {
   user_id: string;
@@ -28,20 +28,40 @@ export default function Library() {
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [newName, setNewName] = useState("");
   const [busy, setBusy] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+
+  async function load() {
+    const { data } = await supa.auth.getUser();
+    const id = data.user?.id || null;
+    setUid(id);
+    if (!id) return;
+
+    const [favRes, plRes] = await Promise.all([listFavorites(id), listPlaylists(id)]);
+    if (favRes.error) Alert.alert("Favorites error", favRes.error.message);
+    else setFavorites((favRes.data as Fav[]) || []);
+    if (plRes.error) Alert.alert("Playlists error", plRes.error.message);
+    else setPlaylists((plRes.data as Playlist[]) || []);
+  }
 
   useEffect(() => {
-    (async () => {
-      const { data } = await supa.auth.getUser();
-      const id = data.user?.id || null;
-      setUid(id);
-      if (!id) return;
+    // initial load
+    load();
+  }, []);
 
-      const [favRes, plRes] = await Promise.all([listFavorites(id), listPlaylists(id)]);
-      if (favRes.error) Alert.alert("Favorites error", favRes.error.message);
-      else setFavorites((favRes.data as Fav[]) || []);
-      if (plRes.error) Alert.alert("Playlists error", plRes.error.message);
-      else setPlaylists((plRes.data as Playlist[]) || []);
-    })();
+  useFocusEffect(
+    useCallback(() => {
+      // re-load every time this screen gains focus
+      load();
+    }, [])
+  );
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await load();
+    } finally {
+      setRefreshing(false);
+    }
   }, []);
 
   async function handleCreate() {
@@ -63,10 +83,20 @@ export default function Library() {
 
   return (
     <View style={{ flex: 1, paddingTop: 32 }}>
-      <View style={{ paddingHorizontal: 16, marginBottom: 8, flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-  <Text style={{ fontSize: 20, fontWeight: "700" }}>Favorites</Text>
-  <Link href="/profile"><Text style={{ color: "#007aff" }}>Profile</Text></Link>
-</View>
+      <View
+        style={{
+          paddingHorizontal: 16,
+          marginBottom: 8,
+          flexDirection: "row",
+          justifyContent: "space-between",
+          alignItems: "center",
+        }}
+      >
+        <Text style={{ fontSize: 20, fontWeight: "700" }}>Favorites</Text>
+        <Link href="/profile">
+          <Text style={{ color: "#007aff" }}>Profile</Text>
+        </Link>
+      </View>
 
       <FlatList
         data={favorites}
@@ -78,6 +108,7 @@ export default function Library() {
           </View>
         )}
         ListEmptyComponent={<Text style={{ textAlign: "center", color: "#666" }}>No favorites yet.</Text>}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       />
 
       <View style={{ paddingHorizontal: 16, paddingTop: 24 }}>
@@ -114,6 +145,7 @@ export default function Library() {
         )}
         ListEmptyComponent={<Text style={{ textAlign: "center", color: "#666", marginTop: 8 }}>No playlists yet.</Text>}
         contentContainerStyle={{ paddingBottom: 24 }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       />
     </View>
   );
