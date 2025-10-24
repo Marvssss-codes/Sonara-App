@@ -4,8 +4,8 @@ import { useState, useEffect } from "react";
 import { supa } from "../../lib/supabase";
 import { theme } from "../../lib/theme";
 import AuthHeader from "../../components/AuthHeader";
-import Input from "../../components/Input";
-import Button from "../../components/Button";
+import GlassInput from "../../components/GlassInput";
+import GradientButton from "../../components/GradientButton";
 
 export default function Login() {
   const router = useRouter();
@@ -37,23 +37,14 @@ export default function Login() {
   return (
     <View style={{ flex: 1, backgroundColor: theme.colors.bg }}>
       <AuthHeader title="Login To Your Account" />
-
-      <View style={{ paddingHorizontal: theme.spacing.md, marginTop: theme.spacing.lg }}>
-        <View style={{ gap: theme.spacing.md }}>
-          <Input placeholder="Email" keyboardType="email-address" autoCapitalize="none" value={email} onChangeText={setEmail} />
-          <Input placeholder="Password" secureTextEntry value={pwd} onChangeText={setPwd} />
-        </View>
-
-        <View style={{ marginTop: theme.spacing.lg }}>
-          <Button title={loading ? "Signing in..." : "Login"} onPress={handleLogin} disabled={loading} />
-        </View>
-
-        <View style={{ alignItems: "center", marginTop: theme.spacing.md }}>
-          <Text style={{ color: theme.colors.textSoft }}>
-            Don’t have an account?{" "}
-            <Link href="/(auth)/signup"><Text style={{ color: theme.colors.primary2 }}>Sign up</Text></Link>
-          </Text>
-        </View>
+      <View style={{ paddingHorizontal: 20, marginTop: 24, gap: 14 }}>
+        <GlassInput icon="mail" placeholder="Email" keyboardType="email-address" autoCapitalize="none" value={email} onChangeText={setEmail} />
+        <GlassInput icon="lock-closed" placeholder="Password" secureTextEntry value={pwd} onChangeText={setPwd} />
+        <GradientButton title={loading ? "Signing in..." : "Login"} onPress={handleLogin} />
+        <Text style={{ color: theme.colors.textSoft, textAlign: "center", marginTop: 8 }}>
+          Don’t have an account?{" "}
+          <Link href="/(auth)/signup"><Text style={{ color: theme.colors.primary2, fontWeight: "700" }}>Sign up</Text></Link>
+        </Text>
       </View>
     </View>
   );
