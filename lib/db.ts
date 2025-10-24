@@ -59,3 +59,13 @@ export async function listPlaylistItems(playlistId: string) {
     .eq("playlist_id", playlistId)
     .order("added_at", { ascending: false });
 }
+
+// lib/db.ts (append these at the bottom)
+
+export async function deletePlaylist(playlistId: string) {
+  return supa.from("playlists").delete().eq("id", playlistId);
+}
+
+export async function removeFromPlaylist(playlistId: string, trackId: string) {
+  return supa.from("playlist_items").delete().eq("playlist_id", playlistId).eq("track_id", trackId);
+}
