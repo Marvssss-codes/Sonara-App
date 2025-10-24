@@ -1,18 +1,30 @@
-import { View, Text, Pressable } from "react-native";
+import { View, Text, Image } from "react-native";
 import { Link } from "expo-router";
+import Button from "../../components/Button";
+import Screen from "../../components/Screen";
+import { theme } from "../../lib/theme";
 
 export default function Onboarding() {
   return (
-    <View style={{ flex:1, alignItems:"center", justifyContent:"center" }}>
-      <Text style={{ fontSize:24, fontWeight:"700", marginBottom:8 }}>Sonara</Text>
-      <Text style={{ textAlign:"center", marginBottom:24, paddingHorizontal:24 }}>
-        Discover music by your generation. Free & Premium tiers.
-      </Text>
-      <Link href="/(auth)/login" asChild>
-        <Pressable style={{ backgroundColor:"#000", paddingVertical:12, paddingHorizontal:24, borderRadius:12 }}>
-          <Text style={{ color:"#fff" }}>Get Started</Text>
-        </Pressable>
-      </Link>
-    </View>
+    <Screen>
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: theme.spacing.md }}>
+        {/* Replace with your logo asset when ready */}
+        {/* <Image source={require("../../assets/logo.png")} style={{ width: 96, height: 96 }} /> */}
+        <Text style={{ color: theme.colors.text, fontSize: 36, fontWeight: "700" }}>Sonara</Text>
+        <Text style={{ color: theme.colors.muted, textAlign: "center", fontSize: 16, paddingHorizontal: theme.spacing.md }}>
+          Discover music by your generation. Explore Gen Alpha, Gen Z, Millennials, Gen X & Boomers.
+        </Text>
+
+        <View style={{ width: "100%", marginTop: theme.spacing.lg }}>
+          <Link href="/(auth)/login" asChild>
+            <Button title="Get Started" />
+          </Link>
+        </View>
+
+        <Text style={{ color: theme.colors.muted, marginTop: theme.spacing.sm, fontSize: 12 }}>
+          No account? You can sign up on the next screen.
+        </Text>
+      </View>
+    </Screen>
   );
 }
