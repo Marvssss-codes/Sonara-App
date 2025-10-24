@@ -2,6 +2,10 @@ import { useEffect, useState } from "react";
 import { View, Text, TextInput, Pressable, Alert } from "react-native";
 import { supa } from "../../lib/supabase";
 import { getGeneration } from "../../utils/generation";
+import BackButton from "../../components/BackButton";
+// ...
+<BackButton />
+
 
 type Profile = {
   display_name: string | null;

@@ -3,6 +3,10 @@ import { View, Text, FlatList, TextInput, Pressable, Alert } from "react-native"
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { supa } from "../../lib/supabase";
 import { listPlaylists, createPlaylist, addToPlaylist } from "../../lib/db";
+import BackButton from "../../components/BackButton";
+// ...
+<BackButton />
+
 
 type Playlist = {
   id: string;

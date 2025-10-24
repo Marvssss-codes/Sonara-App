@@ -3,6 +3,10 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { View, Text, FlatList, Alert, Pressable } from "react-native";
 import { listPlaylistItems, removeFromPlaylist, deletePlaylist } from "../../lib/db";
+import BackButton from "../../components/BackButton";
+// ...
+<BackButton />
+
 
 type PItem = {
   playlist_id: string;
