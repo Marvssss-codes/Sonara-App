@@ -6,22 +6,32 @@ type Props = {
   artwork?: string;
   onPress?: () => void;
   onFavorite?: () => void;
+  onAdd?: () => void; // NEW
 };
 
-export default function SongCard({ title, artist, artwork, onPress, onFavorite }: Props) {
+export default function SongCard({ title, artist, artwork, onPress, onFavorite, onAdd }: Props) {
   return (
-    <Pressable onPress={onPress} style={{ flexDirection:"row", gap:12, padding:12, alignItems:"center" }}>
+    <Pressable onPress={onPress} style={{ flexDirection: "row", gap: 12, padding: 12, alignItems: "center" }}>
       <Image
         source={artwork ? { uri: artwork } : undefined}
-        style={{ width:64, height:64, borderRadius:8, backgroundColor:"#eee" }}
+        style={{ width: 64, height: 64, borderRadius: 8, backgroundColor: "#eee" }}
       />
-      <View style={{ flex:1 }}>
-        <Text numberOfLines={1} style={{ fontWeight:"700" }}>{title}</Text>
-        <Text numberOfLines={1} style={{ color:"#555" }}>{artist || "Unknown"}</Text>
+      <View style={{ flex: 1 }}>
+        <Text numberOfLines={1} style={{ fontWeight: "700" }}>{title}</Text>
+        <Text numberOfLines={1} style={{ color: "#555" }}>{artist || "Unknown"}</Text>
       </View>
-      <Pressable onPress={onFavorite} style={{ paddingVertical:8, paddingHorizontal:12, borderWidth:1, borderRadius:8 }}>
-        <Text>♥</Text>
-      </Pressable>
+
+      {onAdd && (
+        <Pressable onPress={onAdd} style={{ paddingVertical: 8, paddingHorizontal: 12, borderWidth: 1, borderRadius: 8, marginRight: 8 }}>
+          <Text>＋</Text>
+        </Pressable>
+      )}
+
+      {onFavorite && (
+        <Pressable onPress={onFavorite} style={{ paddingVertical: 8, paddingHorizontal: 12, borderWidth: 1, borderRadius: 8 }}>
+          <Text>♥</Text>
+        </Pressable>
+      )}
     </Pressable>
   );
 }
