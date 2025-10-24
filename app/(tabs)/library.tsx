@@ -1,25 +1,52 @@
-import { View, Text, Pressable, Alert } from "react-native";
+import { useEffect, useState } from "react";
+import { View, Text, FlatList, Alert } from "react-native";
 import { supa } from "../../lib/supabase";
-import { useRouter } from "expo-router";
+import { listFavorites } from "../../lib/db";
+import SongCard from "../../components/SongCard";
+
+type Fav = {
+  user_id: string;
+  track_id: string;
+  title: string;
+  artist: string | null;
+  artwork_url: string | null;
+  created_at: string;
+};
 
 export default function Library() {
-  const router = useRouter();
+  const [favorites, setFavorites] = useState<Fav[]>([]);
 
-  async function handleLogout() {
-    const { error } = await supa.auth.signOut();
-    if (error) {
-      Alert.alert("Logout failed", error.message);
-      return;
-    }
-    router.replace("/(auth)/login");
-  }
+  useEffect(() => {
+    (async () => {
+      const { data } = await supa.auth.getUser();
+      const uid = data.user?.id;
+      if (!uid) return;
+
+      const { data: favs, error } = await listFavorites(uid);
+      if (error) {
+        Alert.alert("Error", error.message);
+        return;
+      }
+      setFavorites((favs as Fav[]) || []);
+    })();
+  }, []);
 
   return (
-    <View style={{ flex:1, alignItems:"center", justifyContent:"center", gap:16 }}>
-      <Text style={{ fontSize:18, fontWeight:"600" }}>Library</Text>
-      <Pressable onPress={handleLogout} style={{ backgroundColor:"#000", paddingVertical:12, paddingHorizontal:16, borderRadius:12 }}>
-        <Text style={{ color:"#fff" }}>Log out</Text>
-      </Pressable>
+    <View style={{ flex:1, paddingTop:32 }}>
+      <Text style={{ fontSize:20, fontWeight:"700", padding:16 }}>Favorites</Text>
+      <FlatList
+        data={favorites}
+        keyExtractor={(it) => it.track_id}
+        renderItem={({ item }) => (
+          <SongCard
+            title={item.title}
+            artist={item.artist || "Unknown"}
+            artwork={item.artwork_url || undefined}
+            onPress={() => {}}
+            onFavorite={() => {}}
+          />
+        )}
+      />
     </View>
   );
 }
