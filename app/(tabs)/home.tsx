@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { View, Text, FlatList, Alert } from "react-native";
+import { useRouter } from "expo-router";
 import { trendingTracks, AudiusTrack } from "../../lib/audius";
 import SongCard from "../../components/SongCard";
 import { supa } from "../../lib/supabase";
@@ -8,6 +9,8 @@ import { addFavorite } from "../../lib/db";
 type ProfileRow = { generation?: string };
 
 export default function Home() {
+  const router = useRouter();
+
   const [tracks, setTracks] = useState<AudiusTrack[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
   const [generation, setGeneration] = useState<string>("");
@@ -15,7 +18,7 @@ export default function Home() {
   useEffect(() => {
     (async () => {
       try {
-        // session/user
+        // auth session
         const { data: userData, error: userErr } = await supa.auth.getUser();
         if (userErr) {
           console.log("auth.getUser error:", userErr.message);
@@ -23,7 +26,7 @@ export default function Home() {
         const uid = userData?.user?.id ?? null;
         setUserId(uid);
 
-        // profile (generation)
+        // load generation
         if (uid) {
           const { data: prof, error: profErr } = await supa
             .from("profiles")
@@ -35,7 +38,7 @@ export default function Home() {
           }
         }
 
-        // trending
+        // load trending
         const list = await trendingTracks(20);
         setTracks(list);
       } catch (e: any) {
@@ -66,7 +69,16 @@ export default function Home() {
               artist={artist}
               artwork={item?.artwork_url ?? ""}
               onPress={() => {
-                // player comes later
+                // (Dev C will hook player later)
+              }}
+              onAdd={() => {
+                const qs = new URLSearchParams({
+                  trackId: String(item.id),
+                  title: item?.title ?? "",
+                  artist,
+                  artwork: item?.artwork_url ?? "",
+                }).toString();
+                router.push(`/playlist/select?${qs}`);
               }}
               onFavorite={async () => {
                 try {
