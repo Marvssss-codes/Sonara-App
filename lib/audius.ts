@@ -1,39 +1,63 @@
 // lib/audius.ts
+
 const API_BASE = "https://discoveryprovider.audius.co/v1";
+
+export type AudiusUser = {
+  handle?: string;
+  name?: string;
+};
+
+export type AudiusArtwork = {
+  "100x100"?: string;
+  "480x480"?: string;
+  "1000x1000"?: string;
+};
 
 export type AudiusTrack = {
   id: string;
   title: string;
-  user?: { handle?: string; name?: string };
-  artwork?: { '100x100'?: string; '480x480'?: string; '1000x1000'?: string };
-  artwork_url?: string; // some responses provide direct
+  user?: AudiusUser;
+  artwork?: AudiusArtwork;
+  artwork_url?: string;
   duration?: number;
 };
 
-function pickArtwork(t: AudiusTrack) {
+function pickArtwork(t: Partial<AudiusTrack>): string {
+  const a = (t as any)?.artwork as AudiusArtwork | undefined;
   return (
-    t.artwork_url ||
-    t.artwork?.["480x480"] ||
-    t.artwork?.["100x100"] ||
-    t.artwork?.["1000x1000"] ||
+    (t as any)?.artwork_url ||
+    a?.["480x480"] ||
+    a?.["1000x1000"] ||
+    a?.["100x100"] ||
     ""
   );
 }
 
+async function fetchJson<T = any>(url: string): Promise<T> {
+  const res = await fetch(url);
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`Audius request failed: ${res.status} ${text}`);
+  }
+  return res.json();
+}
+
 export async function searchTracks(q: string, limit = 20): Promise<AudiusTrack[]> {
   const url = `${API_BASE}/tracks/search?query=${encodeURIComponent(q)}&limit=${limit}`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error("Audius search failed");
-  const json = await res.json();
-  const list: AudiusTrack[] = json?.data || [];
-  return list.map(t => ({ ...t, artwork_url: pickArtwork(t) }));
+  const json = await fetchJson<{ data?: any[] }>(url);
+  const list = Array.isArray(json?.data) ? json.data : [];
+  return list.map((t: any) => ({
+    ...t,
+    artwork_url: pickArtwork(t),
+  }));
 }
 
 export async function trendingTracks(limit = 20): Promise<AudiusTrack[]> {
   const url = `${API_BASE}/tracks/trending?limit=${limit}`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error("Audius trending failed");
-  const json = await res.json();
-  const list: AudiusTrack[] = json?.data || {};
-  return (list as any[]).map((t: any) => ({ ...t, artwork_url: pickArtwork(t) }));
+  const json = await fetchJson<{ data?: any[] }>(url);
+  const list = Array.isArray(json?.data) ? json.data : [];
+  return list.map((t: any) => ({
+    ...t,
+    artwork_url: pickArtwork(t),
+  }));
 }
