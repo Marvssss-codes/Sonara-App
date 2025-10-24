@@ -1,7 +1,11 @@
-import { View, Text, TextInput, Pressable, Alert } from "react-native";
+import { View, Text, Alert } from "react-native";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import { supa } from "../../lib/supabase";
+import { theme } from "../../lib/theme";
+import AuthHeader from "../../components/AuthHeader";
+import Input from "../../components/Input";
+import Button from "../../components/Button";
 import { getGeneration } from "../../utils/generation";
 
 export default function Signup() {
@@ -15,23 +19,19 @@ export default function Signup() {
   async function handleSignup() {
     try {
       if (!email || !pwd || !name || !birthYear) {
-        Alert.alert("Missing info", "Please fill all fields.");
-        return;
+        return Alert.alert("Missing info", "Fill all fields.");
       }
       const by = Number(birthYear);
       if (Number.isNaN(by) || by < 1900 || by > new Date().getFullYear()) {
-        Alert.alert("Invalid year", "Please enter a valid birth year.");
-        return;
+        return Alert.alert("Invalid year", "Enter a valid birth year.");
       }
 
       setLoading(true);
       const { data, error } = await supa.auth.signUp({ email, password: pwd });
       if (error || !data.user) {
-        Alert.alert("Sign up failed", error?.message ?? "Unknown error");
         setLoading(false);
-        return;
+        return Alert.alert("Sign up failed", error?.message ?? "Unknown error");
       }
-
       const gen = getGeneration(by);
       const { error: insertErr } = await supa.from("profiles").insert({
         id: data.user.id,
@@ -41,66 +41,33 @@ export default function Signup() {
         genres: [],
         is_premium: false,
         block_explicit: false,
-        lock_to_generation: false
+        lock_to_generation: false,
       });
-
-      if (insertErr) {
-        Alert.alert("Profile create failed", insertErr.message);
-        setLoading(false);
-        return;
-      }
-
-      // Go to home
+      setLoading(false);
+      if (insertErr) return Alert.alert("Profile error", insertErr.message);
       router.replace("/(tabs)/home");
     } catch (e: any) {
-      Alert.alert("Error", e?.message ?? "Something went wrong");
-    } finally {
       setLoading(false);
+      Alert.alert("Error", e?.message ?? "Something went wrong");
     }
   }
 
   return (
-    <View style={{ flex:1, gap:12, alignItems:"center", justifyContent:"center", paddingHorizontal:16 }}>
-      <Text style={{ fontSize:22, fontWeight:"700" }}>Create account</Text>
+    <View style={{ flex: 1, backgroundColor: theme.colors.bg }}>
+      <AuthHeader title="Create Your Account" />
 
-      <TextInput
-        placeholder="Name"
-        value={name}
-        onChangeText={setName}
-        style={{ width:"100%", borderWidth:1, borderRadius:12, paddingHorizontal:12, paddingVertical:10 }}
-      />
+      <View style={{ paddingHorizontal: theme.spacing.md, marginTop: theme.spacing.lg }}>
+        <View style={{ gap: theme.spacing.md }}>
+          <Input placeholder="Name" value={name} onChangeText={setName} />
+          <Input placeholder="Birth year (e.g., 2002)" keyboardType="numeric" value={birthYear} onChangeText={setBirthYear} />
+          <Input placeholder="Email" keyboardType="email-address" autoCapitalize="none" value={email} onChangeText={setEmail} />
+          <Input placeholder="Password" secureTextEntry value={pwd} onChangeText={setPwd} />
+        </View>
 
-      <TextInput
-        placeholder="Birth year (e.g., 2002)"
-        keyboardType="numeric"
-        value={birthYear}
-        onChangeText={setBirthYear}
-        style={{ width:"100%", borderWidth:1, borderRadius:12, paddingHorizontal:12, paddingVertical:10 }}
-      />
-
-      <TextInput
-        placeholder="Email"
-        autoCapitalize="none"
-        value={email}
-        onChangeText={setEmail}
-        style={{ width:"100%", borderWidth:1, borderRadius:12, paddingHorizontal:12, paddingVertical:10 }}
-      />
-
-      <TextInput
-        placeholder="Password"
-        secureTextEntry
-        value={pwd}
-        onChangeText={setPwd}
-        style={{ width:"100%", borderWidth:1, borderRadius:12, paddingHorizontal:12, paddingVertical:10 }}
-      />
-
-      <Pressable
-        onPress={handleSignup}
-        disabled={loading}
-        style={{ width:"100%", backgroundColor: loading ? "#555" : "#000", paddingVertical:12, borderRadius:12 }}
-      >
-        <Text style={{ color:"#fff", textAlign:"center" }}>{loading ? "Creating..." : "Sign up"}</Text>
-      </Pressable>
+        <View style={{ marginTop: theme.spacing.lg }}>
+          <Button title={loading ? "Creating..." : "Sign up"} onPress={handleSignup} disabled={loading} />
+        </View>
+      </View>
     </View>
   );
 }
