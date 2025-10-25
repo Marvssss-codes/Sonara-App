@@ -1,13 +1,11 @@
 import { useEffect, useRef } from "react";
-import { View, Text, Image, Animated, Dimensions } from "react-native";
+import { View, Text, Image, Animated, Dimensions, ImageBackground } from "react-native";
 import { Link } from "expo-router";
 import GradientButton from "../../components/GradientButton";
-import BgDecor from "../../components/BgDecor";
-import { theme } from "../../lib/theme";
 
 const { width } = Dimensions.get("window");
+const DISC_SIZE = width * 0.22;
 
-// if you don't have discs yet, comment this array and the map below
 const discs = [
   require("../../assets/onboarding/disc1.png"),
   require("../../assets/onboarding/disc2.png"),
@@ -31,34 +29,40 @@ export default function Onboarding() {
   }, []);
 
   return (
-    <View style={{ flex: 1, backgroundColor: theme.colors.bg }}>
-      <BgDecor />
+    <View className="flex-1 bg-bg">
+      {/* subtle stripes bg */}
+      <ImageBackground
+        source={require("../../assets/onboarding/stripes.png")}
+        resizeMode="cover"
+        className="absolute inset-0 opacity-30"
+      />
 
-      {/* floating discs */}
-      <View style={{ position: "absolute", top: 100, width: "100%", alignItems: "center" }}>
-        <View style={{ flexDirection: "row", gap: 14 }}>
+      {/* disc belt */}
+      <View className="absolute top-24 w-full items-center">
+        <View className="flex-row space-x-4">
           {discs.map((src, i) => {
-            const translateY = floats[i].interpolate({ inputRange: [0, 1], outputRange: [0, i % 2 ? -8 : 8] });
+            const translateY = floats[i].interpolate({ inputRange: [0,1], outputRange: [0, i % 2 ? -10 : 10] });
             return (
               <Animated.View key={i} style={{ transform: [{ translateY }], opacity: 0.9 }}>
-                <Image source={src} style={{ width: width * 0.2, height: width * 0.2, borderRadius: 200 }} />
+                <Image source={src} style={{ width: DISC_SIZE, height: DISC_SIZE, borderRadius: DISC_SIZE }} />
               </Animated.View>
             );
           })}
         </View>
       </View>
 
-      <View style={{ flex: 1, justifyContent: "flex-end", paddingHorizontal: 20, paddingBottom: 44 }}>
-        <Text style={{ color: theme.colors.textSoft, letterSpacing: 2, marginBottom: 6 }}>SONARA</Text>
-        <Text style={{ color: theme.colors.text, fontSize: 36, fontWeight: "900", lineHeight: 42 }}>
-          Listen to the <Text style={{ color: theme.colors.primary2 }}>Best Music</Text>{"\n"}Everyday
+      {/* headline + CTA */}
+      <View className="flex-1 justify-end px-5 pb-12">
+        <Text className="text-textSoft tracking-wide2 mb-1">SONARA</Text>
+        <Text className="text-text text-[34px] leading-[40px] font-extrabold">
+          Listen to the <Text className="text-primary2">Best Music</Text>{"\n"}Everyday
         </Text>
 
         <Link href="/(auth)/login" asChild>
-          <GradientButton title="Let’s Get Started" style={{ marginTop: 20 }} />
+          <GradientButton title="Let's Get Started" style={{ marginTop: 22 }} />
         </Link>
 
-        <Text style={{ color: theme.colors.textSoft, marginTop: 10, opacity: 0.7, fontSize: 12 }}>Version 1.2.1</Text>
+        <Text className="text-textSoft mt-3 opacity-70 text-xs">Version 1.2.1</Text>
       </View>
     </View>
   );
