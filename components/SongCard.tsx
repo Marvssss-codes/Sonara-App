@@ -1,37 +1,36 @@
-import { View, Text, Image, Pressable } from "react-native";
+import { View, Image, Text, Pressable, ViewStyle } from "react-native";
+import { AudiusTrack } from "../lib/audius";
 
-type Props = {
-  title: string;
-  artist?: string;
-  artwork?: string;
-  onPress?: () => void;
-  onFavorite?: () => void;
-  onAdd?: () => void; // NEW
-};
+export default function SongCard({
+  track, onPress, style
+}: { track: AudiusTrack; onPress?: () => void; style?: ViewStyle }) {
+  const art =
+    track.artwork?.["480x480"] ||
+    track.artwork?.["150x150"] ||
+    "https://placehold.co/480x480/111/FFF.png?text=Artwork";
 
-export default function SongCard({ title, artist, artwork, onPress, onFavorite, onAdd }: Props) {
   return (
-    <Pressable onPress={onPress} style={{ flexDirection: "row", gap: 12, padding: 12, alignItems: "center" }}>
-      <Image
-        source={artwork ? { uri: artwork } : undefined}
-        style={{ width: 64, height: 64, borderRadius: 8, backgroundColor: "#eee" }}
-      />
-      <View style={{ flex: 1 }}>
-        <Text numberOfLines={1} style={{ fontWeight: "700" }}>{title}</Text>
-        <Text numberOfLines={1} style={{ color: "#555" }}>{artist || "Unknown"}</Text>
+    <Pressable onPress={onPress} style={[{ width: 160 }, style]}>
+      <View
+        style={{
+          width: 160,
+          height: 160,
+          borderRadius: 16,
+          overflow: "hidden",
+          backgroundColor: "#131A2C",
+        }}
+      >
+        <Image source={{ uri: art }} style={{ width: "100%", height: "100%" }} />
       </View>
-
-      {onAdd && (
-        <Pressable onPress={onAdd} style={{ paddingVertical: 8, paddingHorizontal: 12, borderWidth: 1, borderRadius: 8, marginRight: 8 }}>
-          <Text>＋</Text>
-        </Pressable>
-      )}
-
-      {onFavorite && (
-        <Pressable onPress={onFavorite} style={{ paddingVertical: 8, paddingHorizontal: 12, borderWidth: 1, borderRadius: 8 }}>
-          <Text>♥</Text>
-        </Pressable>
-      )}
+      <Text
+        numberOfLines={1}
+        style={{ color: "#fff", marginTop: 8, fontWeight: "800" }}
+      >
+        {track.title}
+      </Text>
+      <Text numberOfLines={1} style={{ color: "#B7BCD3", marginTop: 2 }}>
+        {track.user?.name || track.user?.handle}
+      </Text>
     </Pressable>
   );
 }

@@ -1,63 +1,41 @@
-// lib/audius.ts
+// Minimal Audius client for public endpoints
+// Docs pattern: https://api.audius.co/v1/...
+const API = "https://api.audius.co/v1";
+const APP = "sonara"; // app name for rate limiting identification
 
-const API_BASE = "https://discoveryprovider.audius.co/v1";
-
-export type AudiusUser = {
-  handle?: string;
-  name?: string;
-};
-
-export type AudiusArtwork = {
-  "100x100"?: string;
-  "480x480"?: string;
-  "1000x1000"?: string;
-};
+async function fetchJson<T>(url: string): Promise<T> {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Audius ${res.status}: ${await res.text()}`);
+  return res.json() as Promise<T>;
+}
 
 export type AudiusTrack = {
   id: string;
   title: string;
-  user?: AudiusUser;
-  artwork?: AudiusArtwork;
-  artwork_url?: string;
-  duration?: number;
+  user: { handle: string; name: string };
+  artwork: { "150x150": string; "480x480": string; "1000x1000": string } | null;
+  duration: number;
+  genre?: string;
+  mood?: string;
+  permalink: string;
 };
 
-function pickArtwork(t: Partial<AudiusTrack>): string {
-  const a = (t as any)?.artwork as AudiusArtwork | undefined;
-  return (
-    (t as any)?.artwork_url ||
-    a?.["480x480"] ||
-    a?.["1000x1000"] ||
-    a?.["100x100"] ||
-    ""
-  );
+type TracksResp = { data: AudiusTrack[] };
+
+export async function getTrendingAll(time: "week" | "month" | "year" = "week") {
+  const url = `${API}/tracks/trending?time=${time}&app_name=${APP}`;
+  const json = await fetchJson<TracksResp>(url);
+  return json.data;
 }
 
-async function fetchJson<T = any>(url: string): Promise<T> {
-  const res = await fetch(url);
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(`Audius request failed: ${res.status} ${text}`);
-  }
-  return res.json();
+export async function getTrendingByGenre(genre: string, time: "week" | "month" | "year" = "week") {
+  const url = `${API}/tracks/trending?genre=${encodeURIComponent(genre)}&time=${time}&app_name=${APP}`;
+  const json = await fetchJson<TracksResp>(url);
+  return json.data;
 }
 
-export async function searchTracks(q: string, limit = 20): Promise<AudiusTrack[]> {
-  const url = `${API_BASE}/tracks/search?query=${encodeURIComponent(q)}&limit=${limit}`;
-  const json = await fetchJson<{ data?: any[] }>(url);
-  const list = Array.isArray(json?.data) ? json.data : [];
-  return list.map((t: any) => ({
-    ...t,
-    artwork_url: pickArtwork(t),
-  }));
-}
-
-export async function trendingTracks(limit = 20): Promise<AudiusTrack[]> {
-  const url = `${API_BASE}/tracks/trending?limit=${limit}`;
-  const json = await fetchJson<{ data?: any[] }>(url);
-  const list = Array.isArray(json?.data) ? json.data : [];
-  return list.map((t: any) => ({
-    ...t,
-    artwork_url: pickArtwork(t),
-  }));
+export async function searchTracks(query: string) {
+  const url = `${API}/tracks/search?query=${encodeURIComponent(query)}&app_name=${APP}`;
+  const json = await fetchJson<TracksResp>(url);
+  return json.data;
 }
