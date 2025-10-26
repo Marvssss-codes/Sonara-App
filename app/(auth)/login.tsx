@@ -1,4 +1,5 @@
-import { View, Text, Alert } from "react-native";
+// app/(auth)/login.tsx
+import { View, Text, Alert, KeyboardAvoidingView, Platform, ScrollView } from "react-native";
 import { Link, useRouter } from "expo-router";
 import { useState, useEffect } from "react";
 import { supa } from "../../lib/supabase";
@@ -37,15 +38,22 @@ export default function Login() {
   return (
     <View style={{ flex: 1, backgroundColor: theme.colors.bg }}>
       <AuthHeader title="Login To Your Account" />
-      <View style={{ paddingHorizontal: 20, marginTop: 24, gap: 14 }}>
-        <GlassInput icon="mail" placeholder="Email" keyboardType="email-address" autoCapitalize="none" value={email} onChangeText={setEmail} />
-        <GlassInput icon="lock-closed" placeholder="Password" secureTextEntry value={pwd} onChangeText={setPwd} />
-        <GradientButton title={loading ? "Signing in..." : "Login"} onPress={handleLogin} />
-        <Text style={{ color: theme.colors.textSoft, textAlign: "center", marginTop: 8 }}>
-          Don’t have an account?{" "}
-          <Link href="/(auth)/signup"><Text style={{ color: theme.colors.primary2, fontWeight: "700" }}>Sign up</Text></Link>
-        </Text>
-      </View>
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
+        <ScrollView contentContainerStyle={{ padding: 20, gap: 14 }}>
+          <GlassInput icon="mail" placeholder="Email" keyboardType="email-address" autoCapitalize="none" value={email} onChangeText={setEmail} />
+          <GlassInput icon="lock-closed" placeholder="Password" secureTextEntry value={pwd} onChangeText={setPwd} />
+          <GradientButton title={loading ? "Signing in..." : "Login"} onPress={handleLogin} />
+          <View style={{ alignItems: "center", marginTop: 8 }}>
+            <Text style={{ color: theme.colors.textSoft, marginBottom: 8 }}>
+              <Link href="/(auth)/forgot"><Text style={{ color: theme.colors.primary2 }}>Forgot password?</Text></Link>
+            </Text>
+            <Text style={{ color: theme.colors.textSoft }}>
+              Don’t have an account?{" "}
+              <Link href="/(auth)/signup"><Text style={{ color: theme.colors.primary2, fontWeight: "700" }}>Sign up</Text></Link>
+            </Text>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </View>
   );
 }

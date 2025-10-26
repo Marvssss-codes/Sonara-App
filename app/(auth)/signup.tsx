@@ -1,4 +1,5 @@
-import { View, Text, Alert } from "react-native";
+// app/(auth)/signup.tsx
+import { View, Text, Alert, KeyboardAvoidingView, Platform, ScrollView } from "react-native";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import { supa } from "../../lib/supabase";
@@ -43,13 +44,15 @@ export default function Signup() {
   return (
     <View style={{ flex: 1, backgroundColor: theme.colors.bg }}>
       <AuthHeader title="Create Your Account" />
-      <View style={{ paddingHorizontal: 20, marginTop: 24, gap: 14 }}>
-        <GlassInput icon="person" placeholder="Name" value={name} onChangeText={setName} />
-        <GlassInput icon="calendar" placeholder="Birth year (e.g., 2002)" keyboardType="numeric" value={birthYear} onChangeText={setBirthYear} />
-        <GlassInput icon="mail" placeholder="Email" keyboardType="email-address" autoCapitalize="none" value={email} onChangeText={setEmail} />
-        <GlassInput icon="lock-closed" placeholder="Password" secureTextEntry value={pwd} onChangeText={setPwd} />
-        <GradientButton title={loading ? "Creating..." : "Sign up"} onPress={handleSignup} />
-      </View>
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
+        <ScrollView contentContainerStyle={{ padding: 20, gap: 14 }}>
+          <GlassInput icon="person" placeholder="Name" value={name} onChangeText={setName} />
+          <GlassInput icon="calendar" placeholder="Birth year (e.g., 2002)" keyboardType="numeric" value={birthYear} onChangeText={setBirthYear} />
+          <GlassInput icon="mail" placeholder="Email" keyboardType="email-address" autoCapitalize="none" value={email} onChangeText={setEmail} />
+          <GlassInput icon="lock-closed" placeholder="Password" secureTextEntry value={pwd} onChangeText={setPwd} />
+          <GradientButton title={loading ? "Creating..." : "Sign up"} onPress={handleSignup} />
+        </ScrollView>
+      </KeyboardAvoidingView>
     </View>
   );
 }
