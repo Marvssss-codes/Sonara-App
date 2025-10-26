@@ -1,3 +1,4 @@
+// components/GlassInput.tsx
 import { View, TextInput, TextInputProps } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { theme } from "../lib/theme";
@@ -14,8 +15,8 @@ export default function GlassInput({
         borderRadius: theme.radius.lg,
         borderWidth: 1,
         borderColor: theme.colors.border,
-        backgroundColor: theme.colors.surface,
-        paddingHorizontal: 12
+        backgroundColor: theme.colors.glass,
+        paddingHorizontal: 12,
       }}
     >
       <Ionicons name={icon} size={18} color={theme.colors.textSoft} />
@@ -26,7 +27,7 @@ export default function GlassInput({
           color: theme.colors.text,
           paddingVertical: 12,
           paddingLeft: 8,
-          fontSize: 16
+          fontSize: 16,
         }}
         {...props}
       />

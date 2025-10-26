@@ -1,5 +1,6 @@
+// components/BackButton.tsx
 import { useRouter } from "expo-router";
-import { Pressable, View } from "react-native";
+import { Pressable } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { theme } from "../lib/theme";
 
@@ -20,7 +21,7 @@ export default function BackButton() {
         justifyContent: "center",
         backgroundColor: "rgba(255,255,255,0.08)",
         borderWidth: 1,
-        borderColor: theme.colors.border
+        borderColor: theme.colors.border,
       }}
     >
       <Ionicons name="chevron-back" size={20} color="#fff" />

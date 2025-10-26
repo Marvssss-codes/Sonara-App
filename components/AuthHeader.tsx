@@ -1,3 +1,4 @@
+// components/AuthHeader.tsx
 import { View, Text, ImageBackground } from "react-native";
 import BackButton from "./BackButton";
 import { theme } from "../lib/theme";
@@ -5,7 +6,6 @@ import { theme } from "../lib/theme";
 export default function AuthHeader({ title, subtitle }: { title: string; subtitle?: string }) {
   return (
     <View style={{ height: 240, backgroundColor: theme.colors.bg2, overflow: "hidden" }}>
-      {/* drop your image to assets/auth/hero.png or comment out the source */}
       <ImageBackground
         source={require("../assets/auth/hero.png")}
         resizeMode="cover"
