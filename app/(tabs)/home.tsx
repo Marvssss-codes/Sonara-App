@@ -1,20 +1,11 @@
 // app/(tabs)/home.tsx
 import { useEffect, useMemo, useState } from "react";
-import {
-  View,
-  Text,
-  ScrollView,
-  Pressable,
-  FlatList,
-} from "react-native";
+import { View, Text, ScrollView, Pressable, FlatList } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Link, useRouter } from "expo-router";
-import { LinearGradient } from "expo-linear-gradient";
-
 import { supa } from "../../lib/supabase";
 import { getTrendingAll, getTrendingByGenre, AudiusTrack } from "../../lib/audius";
 import { genresForGeneration, Generation } from "../../utils/genToGenres";
-
 import CategoryChip from "../../components/CategoryChip";
 import SongCard from "../../components/SongCard";
 import PlaylistPill from "../../components/PlaylistPill";
@@ -28,71 +19,75 @@ export default function Home() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
-  // UI state
+  // UI
   const [menuOpen, setMenuOpen] = useState(false);
 
-  // Profile state
-  const [displayName, setDisplayName] = useState<string>(""); // no "there" default; we’ll fallback at render
+  // Profile
+  const [displayName, setDisplayName] = useState<string>("");
   const [generation, setGeneration] = useState<Generation | null>(null);
-  const [playlists, setPlaylists] = useState<Playlist[]>([]);
+  const [userId, setUserId] = useState<string | null>(null);
 
-  // Feed state
+  // Playlists
+  const [playlists, setPlaylists] = useState<Playlist[]>([]);
+  const [loadingPlaylists, setLoadingPlaylists] = useState(true);
+
+  // Feed
   const [activeCat, setActiveCat] = useState("All");
   const [popular, setPopular] = useState<AudiusTrack[]>([]);
   const [catTracks, setCatTracks] = useState<AudiusTrack[]>([]);
   const [genTracks, setGenTracks] = useState<AudiusTrack[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loadingFeed, setLoadingFeed] = useState(true);
 
-  // Load profile + playlists (name fallback to auth user)
-useEffect(() => {
-  (async () => {
-    try {
-      const { data: sessionData } = await supa.auth.getSession();
-      const uid = sessionData.session?.user?.id;
-      if (!uid) return;
+  // Load profile + playlists
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data: sessionData } = await supa.auth.getSession();
+        const uid = sessionData.session?.user?.id || null;
+        setUserId(uid);
 
-      // get auth user for fallback name
-      const { data: userData } = await supa.auth.getUser();
-      const authUser = userData.user;
+        const { data: userData } = await supa.auth.getUser();
+        const authUser = userData.user;
 
-      // fetch profile row
-      const { data: prof } = await supa
-        .from("profiles")
-        .select("display_name,generation")
-        .eq("id", uid)
-        .single();
+        if (uid) {
+          const { data: prof } = await supa
+            .from("profiles")
+            .select("display_name,generation")
+            .eq("id", uid)
+            .single();
 
-      // derive a friendly name
-      const fallbackName =
-        (authUser?.user_metadata?.full_name as string) ||
-        (authUser?.user_metadata?.name as string) ||
-        (authUser?.email ? authUser.email.split("@")[0] : "") ||
-        "";
+          const fallbackName =
+            (authUser?.user_metadata?.full_name as string) ||
+            (authUser?.user_metadata?.name as string) ||
+            (authUser?.email ? authUser.email.split("@")[0] : "") ||
+            "";
 
-      setDisplayName(
-        (prof?.display_name && String(prof.display_name).trim()) || fallbackName
-      );
+          setDisplayName(
+            (prof?.display_name && String(prof.display_name).trim()) || fallbackName
+          );
+          if (prof?.generation) setGeneration(prof.generation as Generation);
 
-      if (prof?.generation) setGeneration(prof.generation as Generation);
+          // fetch playlists
+          setLoadingPlaylists(true);
+          const { data: pls } = await supa
+            .from("playlists")
+            .select("id,name,cover_url")
+            .eq("user_id", uid)
+            .order("created_at", { ascending: false });
+          setPlaylists((pls as Playlist[]) || []);
+        }
+      } catch {
+        // ignore
+      } finally {
+        setLoadingPlaylists(false);
+      }
+    })();
+  }, []);
 
-      // playlists
-      const { data: pls } = await supa
-        .from("playlists")
-        .select("id,name,cover_url")
-        .eq("user_id", uid)
-        .order("created_at", { ascending: false });
-
-      if (pls) setPlaylists(pls as Playlist[]);
-    } catch {
-      // keep UI working even if something fails
-    }
-  })();
-}, []);
-
-  // Load Audius sections
+  // Load Audius feed sections
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
+    setLoadingFeed(true);
 
     (async () => {
       try {
@@ -105,9 +100,7 @@ useEffect(() => {
               try {
                 const res = await getTrendingByGenre(g, "week");
                 if (res?.length) return res;
-              } catch {
-                // try next genre
-              }
+              } catch {}
             }
             return [];
           })(),
@@ -119,9 +112,13 @@ useEffect(() => {
           setGenTracks((genList || []).slice(0, 12));
         }
       } catch {
-        // keep UI, just empty lists
+        if (!cancelled) {
+          setPopular([]);
+          setCatTracks([]);
+          setGenTracks([]);
+        }
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) setLoadingFeed(false);
       }
     })();
 
@@ -152,10 +149,11 @@ useEffect(() => {
         <View>
           <Text style={{ color: "#B7BCD3" }}>{hello},</Text>
           <Text style={{ color: "#fff", fontWeight: "900", fontSize: 22 }}>
-  {(displayName && displayName.trim()) ? displayName : "there"} ✨
-</Text>
+            {(displayName && displayName.trim()) ? displayName : "there"} ✨
+          </Text>
         </View>
 
+        {/* Top-right profile menu trigger */}
         <Pressable
           onPress={() => setMenuOpen(true)}
           style={{
@@ -174,14 +172,16 @@ useEffect(() => {
       </View>
 
       <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}>
-        {/* Your Playlists (top preview) */}
-        {playlists?.length ? (
-          <View style={{ paddingHorizontal: 16, marginTop: 6 }}>
-            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-              <Text style={{ color: "#fff", fontWeight: "900", fontSize: 18 }}>Your Playlists</Text>
-              <Link href="/library" style={{ color: "#C07CFF", fontWeight: "800" }}>See all</Link>
-            </View>
+        {/* ===== Your Playlists (top preview) ===== */}
+        <View style={{ paddingHorizontal: 16, marginTop: 6 }}>
+          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+            <Text style={{ color: "#fff", fontWeight: "900", fontSize: 18 }}>Your Playlists</Text>
+            <Link href="/library" style={{ color: "#C07CFF", fontWeight: "800" }}>See all</Link>
+          </View>
 
+          {loadingPlaylists ? (
+            <Text style={{ color: "#B7BCD3" }}>Loading...</Text>
+          ) : playlists.length ? (
             <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", rowGap: 10 }}>
               {playlists.slice(0, 6).map((p) => (
                 <PlaylistPill
@@ -192,10 +192,27 @@ useEffect(() => {
                 />
               ))}
             </View>
-          </View>
-        ) : null}
+          ) : (
+            // Empty state with "Create playlist" tile
+            <Pressable
+              onPress={() => router.push("/library")}
+              style={{
+                height: 64,
+                borderRadius: 14,
+                borderWidth: 1,
+                borderColor: "rgba(255,255,255,0.2)",
+                backgroundColor: "rgba(255,255,255,0.06)",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Text style={{ color: "#fff", fontWeight: "800" }}>Create your first playlist</Text>
+              <Text style={{ color: "#B7BCD3", fontSize: 12, marginTop: 2 }}>Tap to open Library</Text>
+            </Pressable>
+          )}
+        </View>
 
-        {/* Category chips */}
+        {/* ===== Category chips ===== */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -206,7 +223,7 @@ useEffect(() => {
           ))}
         </ScrollView>
 
-        {/* Popular Songs */}
+        {/* ===== Popular Songs ===== */}
         <Section title="Popular Songs" href="/search">
           <FlatList
             horizontal
@@ -218,7 +235,7 @@ useEffect(() => {
           />
         </Section>
 
-        {/* For Your Generation */}
+        {/* ===== For Your Generation ===== */}
         <Section title={generation ? `For ${generation}` : "For You"}>
           <FlatList
             horizontal
@@ -230,7 +247,7 @@ useEffect(() => {
           />
         </Section>
 
-        {/* Category feed */}
+        {/* ===== Category feed ===== */}
         <Section title={activeCat === "All" ? "Trending Now" : `${activeCat} Picks`}>
           <FlatList
             horizontal
@@ -244,49 +261,27 @@ useEffect(() => {
       </ScrollView>
 
       {/* Top-right dropdown menu */}
-     <TopMenu
+      <TopMenu
   visible={menuOpen}
   onClose={() => setMenuOpen(false)}
-  onProfile={() => { setMenuOpen(false); router.push("/profile"); }}   // ✅ matches bottom tab
-  onSettings={() => { setMenuOpen(false); router.push("/settings"); }}
-  onLogout={async () => {
+  onProfile={() => {
     setMenuOpen(false);
-    try { await supa.auth.signOut(); } catch {}
-    router.replace("/login");
+    // explicitly target the Tabs group’s profile screen
+    router.navigate("/(tabs)/profile");
   }}
+  onSettings={() => { setMenuOpen(false); router.navigate("/settings"); }}
+  onLogout={async () => { setMenuOpen(false); try { await supa.auth.signOut(); } catch {} router.replace("/login"); }}
 />
     </View>
   );
 }
 
-function Section({
-  title,
-  href,
-  children,
-}: {
-  title: string;
-  href?: string;
-  children: React.ReactNode;
-}) {
+function Section({ title, href, children }: { title: string; href?: any; children: React.ReactNode }) {
   return (
     <View style={{ marginTop: 8, marginBottom: 12 }}>
-      <View
-        style={{
-          paddingHorizontal: 16,
-          marginBottom: 8,
-          flexDirection: "row",
-          justifyContent: "space-between",
-          alignItems: "center",
-        }}
-      >
+      <View style={{ paddingHorizontal: 16, marginBottom: 8, flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
         <Text style={{ color: "#fff", fontWeight: "900", fontSize: 18 }}>{title}</Text>
-        {href ? (
-          <Link href={href as any} style={{ color: "#C07CFF", fontWeight: "800" }}>
-            See all
-          </Link>
-        ) : (
-          <View />
-        )}
+        {href ? <Link href={href as any} style={{ color: "#C07CFF", fontWeight: "800" }}>See all</Link> : <View />}
       </View>
       {children}
     </View>
