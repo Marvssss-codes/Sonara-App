@@ -36,21 +36,24 @@ export default function Library() {
 
   // realtime: listen to any change on my playlists
   useEffect(() => {
-    let channel: any;
-    (async () => {
-      const { data } = await supa.auth.getSession();
-      const uid = data.session?.user?.id;
-      if (!uid) return;
-      channel = supa
-        .channel("lib_playlists")
-        .on("postgres_changes",
-          { event: "*", schema: "public", table: "playlists", filter: `user_id=eq.${uid}` },
-          load
-        )
-        .subscribe();
-    })();
-    return () => { if (channel) supa.removeChannel(channel); };
-  }, []);
+  let channel: any;
+  (async () => {
+    const { data } = await supa.auth.getSession();
+    const uid = data.session?.user?.id;
+    if (!uid) return;
+    channel = supa
+      .channel("lib_playlists")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "playlists", filter: `user_id=eq.${uid}` },
+        load
+      )
+      .subscribe(status => {
+        // optional: console.log("channel status:", status);
+      });
+  })();
+  return () => { if (channel) supa.removeChannel(channel); };
+}, []);
 
   const openCreate = () => {
     setEditingId(null);
@@ -63,24 +66,39 @@ export default function Library() {
     setModalOpen(true);
   };
 
-  const saveModal = async () => {
-    if (!name.trim()) return;
-    try {
-      if (editingId) await renamePlaylist(editingId, name.trim());
-      else await createPlaylist(name.trim());
-      setModalOpen(false);
-      setName("");
-    } catch (e: any) {
-      Alert.alert("Error", e.message ?? "Could not save");
+ const saveModal = async () => {
+  if (!name.trim()) return;
+  try {
+    if (editingId) {
+      await renamePlaylist(editingId, name.trim());
+    } else {
+      await createPlaylist(name.trim());
     }
-  };
+    setModalOpen(false);
+    setName("");
+    await load(); // <-- immediate refresh
+  } catch (e: any) {
+    Alert.alert("Error", e.message ?? "Could not save");
+  }
+};
 
-  const remove = (id: string) => {
-    Alert.alert("Delete playlist?", "This can’t be undone.", [
-      { text: "Cancel", style: "cancel" },
-      { text: "Delete", style: "destructive", onPress: async () => { try { await deletePlaylist(id); } catch (e: any) { Alert.alert("Error", e.message ?? "Failed"); } } },
-    ]);
-  };
+const remove = (id: string) => {
+  Alert.alert("Delete playlist?", "This can’t be undone.", [
+    { text: "Cancel", style: "cancel" },
+    {
+      text: "Delete",
+      style: "destructive",
+      onPress: async () => {
+        try {
+          await deletePlaylist(id);
+          await load(); // <-- immediate refresh
+        } catch (e: any) {
+          Alert.alert("Error", e.message ?? "Failed");
+        }
+      },
+    },
+  ]);
+};
 
   const headerTitle = useMemo(() => {
     switch (filter) {

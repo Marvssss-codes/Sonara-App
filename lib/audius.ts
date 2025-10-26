@@ -34,8 +34,14 @@ export async function getTrendingByGenre(genre: string, time: "week" | "month" |
   return json.data;
 }
 
-export async function searchTracks(query: string) {
-  const url = `${API}/tracks/search?query=${encodeURIComponent(query)}&app_name=${APP}`;
-  const json = await fetchJson<TracksResp>(url);
-  return json.data;
+// lib/audius.ts (add this)
+export async function searchTracks(query: string, limit = 25): Promise<AudiusTrack[]> {
+  if (!query.trim()) return [];
+  const base = "https://discoveryprovider.audius.co/v1";
+  const url = `${base}/tracks/search?query=${encodeURIComponent(query)}&limit=${limit}&app_name=sonara`;
+  const res = await fetch(url);
+  if (!res.ok) return [];
+  const json = await res.json();
+  // audius returns { data: [...] }
+  return json?.data || [];
 }

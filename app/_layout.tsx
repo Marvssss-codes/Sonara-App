@@ -5,6 +5,9 @@ import * as SplashScreen from "expo-splash-screen";
 import { useCallback, useState } from "react";
 import { View, Text } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import "react-native-url-polyfill/auto";
+import "react-native-get-random-values";
+
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
