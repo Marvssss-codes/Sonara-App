@@ -13,6 +13,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
+import * as FileSystem from "expo-file-system";
+import { decode } from "base64-arraybuffer";
 import { supa } from "../lib/supabase";
 
 const GENERATIONS = ["Gen Alpha", "Gen Z", "Millennial", "Gen X", "Boomer", "Silent"];
@@ -28,19 +30,16 @@ export default function ProfileSetup() {
   const [avatar, setAvatar] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // --- NEW: on mount, ensure we have a session & prefill fields from auth metadata ---
+  // Ensure session & prefill name
   useEffect(() => {
     (async () => {
       const { data } = await supa.auth.getSession();
       const uid = data.session?.user?.id;
-
       if (!uid) {
         Alert.alert("Sign in required", "Please log in again to complete setup.");
         router.replace("/login");
         return;
       }
-
-      // Prefill name from auth metadata (from signup), if present
       const { data: u } = await supa.auth.getUser();
       const meta = u.user?.user_metadata || {};
       const suggested =
@@ -48,7 +47,6 @@ export default function ProfileSetup() {
         (meta.name as string) ||
         (u.user?.email ? u.user.email.split("@")[0] : "") ||
         "";
-
       if (!displayName) setDisplayName(suggested);
     })();
   }, []);
@@ -60,20 +58,31 @@ export default function ProfileSetup() {
   };
 
   const pickAvatar = async () => {
-    // Request permissions (iOS particularly)
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) {
       Alert.alert("Permission needed", "Allow photo access to choose an avatar.");
       return;
     }
-
     const res = await ImagePicker.launchImageLibraryAsync({
       allowsEditing: true,
       quality: 0.8,
       aspect: [1, 1],
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
     });
-    if (!res.canceled) setAvatar(res.assets[0].uri);
+    if (!res.canceled) setAvatar(res.assets[0].uri); // file:// or content://
+  };
+
+  const extAndMime = (uri: string) => {
+    const ext = (uri.split(".").pop() || "jpg").toLowerCase();
+    const map: Record<string, string> = {
+      jpg: "image/jpeg",
+      jpeg: "image/jpeg",
+      png: "image/png",
+      webp: "image/webp",
+      heic: "image/heic",
+      heif: "image/heif",
+    };
+    return { ext, mime: map[ext] || "application/octet-stream" };
   };
 
   const saveProfile = async () => {
@@ -85,7 +94,7 @@ export default function ProfileSetup() {
     try {
       setLoading(true);
 
-      // Guard: ensure we have a session
+      // Guard session
       const { data: session } = await supa.auth.getSession();
       const uid = session.session?.user?.id;
       if (!uid) {
@@ -95,26 +104,34 @@ export default function ProfileSetup() {
         return;
       }
 
-      // Upload avatar (optional)
+      // Upload avatar (safe path: FileSystem -> base64 -> ArrayBuffer)
       let avatar_url: string | null = null;
       if (avatar) {
-        const ext = (avatar.split(".").pop() || "jpg").toLowerCase();
-        const fileName = `avatars/${uid}.${ext}`;
+        try {
+          const { ext, mime } = extAndMime(avatar);
+          const fileName = `avatars/${uid}.${ext}`;
 
-        // fetch local file and upload as blob
-        const img = await fetch(avatar);
-        const blob = await img.blob();
+          // NOTE: use literal "base64" (EncodingType may be undefined on some SDKs)
+          const base64 = await FileSystem.readAsStringAsync(avatar, {
+            // @ts-ignore - RN accepts string literal
+            encoding: "base64",
+          });
+          const arrayBuffer = decode(base64);
 
-        const { error: uploadErr } = await supa.storage
-          .from("avatars")
-          .upload(fileName, blob, { upsert: true, contentType: `image/${ext}` });
-        if (uploadErr) throw uploadErr;
+          const { error: uploadErr } = await supa.storage
+            .from("avatars")
+            .upload(fileName, arrayBuffer, { upsert: true, contentType: mime });
+          if (uploadErr) throw uploadErr;
 
-        const { data: publicUrl } = supa.storage.from("avatars").getPublicUrl(fileName);
-        avatar_url = publicUrl.publicUrl;
+          const { data: publicUrl } = supa.storage.from("avatars").getPublicUrl(fileName);
+          avatar_url = publicUrl.publicUrl;
+        } catch (e: any) {
+          // If avatar upload fails, continue with profile save (don’t block)
+          console.warn("Avatar upload failed:", e?.message || e);
+        }
       }
 
-      // Upsert profile row (RLS allows only own id)
+      // Upsert profile
       const { error } = await supa.from("profiles").upsert({
         id: uid,
         display_name: displayName,
@@ -197,18 +214,17 @@ export default function ProfileSetup() {
         {GENRES.map((g) => (
           <Pressable
             key={g}
-            onPress={() => toggleGenre(g)}
+            onPress={() =>
+              setSelectedGenres((prev) =>
+                prev.includes(g) ? prev.filter((x) => x !== g) : [...prev, g]
+              )
+            }
             style={[
               styles.genreChip,
               selectedGenres.includes(g) && { backgroundColor: "#8E59FF" },
             ]}
           >
-            <Text
-              style={{
-                color: selectedGenres.includes(g) ? "#fff" : "#ccc",
-                fontWeight: "600",
-              }}
-            >
+            <Text style={{ color: selectedGenres.includes(g) ? "#fff" : "#ccc", fontWeight: "600" }}>
               {g}
             </Text>
           </Pressable>
