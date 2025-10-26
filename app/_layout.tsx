@@ -4,6 +4,7 @@ import { StatusBar } from "expo-status-bar";
 import * as SplashScreen from "expo-splash-screen";
 import { useCallback, useState } from "react";
 import { View, Text } from "react-native";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -15,15 +16,17 @@ export default function RootLayout() {
   }, []);
 
   return (
-    <View style={{ flex: 1, backgroundColor: "#0B0E17" }} onLayout={onLayoutRootView}>
-      <StatusBar style="light" />
-      {ready ? (
-        <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: "#0B0E17" } }} />
-      ) : (
-        <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-          <Text style={{ color: "#fff" }}>Loading…</Text>
-        </View>
-      )}
-    </View>
+    <SafeAreaProvider>
+      <View style={{ flex: 1, backgroundColor: "#0B0E17" }} onLayout={onLayoutRootView}>
+        <StatusBar style="light" />
+        {ready ? (
+          <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: "#0B0E17" } }} />
+        ) : (
+          <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+            <Text style={{ color: "#fff" }}>Loading…</Text>
+          </View>
+        )}
+      </View>
+    </SafeAreaProvider>
   );
 }

@@ -1,87 +1,202 @@
-import { useEffect, useRef } from "react";
-import { View, Text, Image, Animated, Dimensions, ImageBackground, SafeAreaView } from "react-native";
-import { Link } from "expo-router";
+import { useRef, useState } from "react";
+import {
+  View,
+  Text,
+  ImageBackground,
+  FlatList,
+  Dimensions,
+  Pressable,
+  ImageSourcePropType,
+} from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
+import { useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const { width, height } = Dimensions.get("window");
-const DISC = width * 0.22;
 
-const discs = [
-  require("../../assets/onboarding/disc1.png"),
-  require("../../assets/onboarding/disc2.png"),
-  require("../../assets/onboarding/disc3.png"),
-  require("../../assets/onboarding/disc4.png"),
-  require("../../assets/onboarding/disc5.png"),
+// 3 slide images (use your real assets; duplicates are fine for now)
+const slides: { image: ImageSourcePropType; title: string; subtitle: string }[] = [
+  {
+    image: require("../../assets/onboarding/slide1.png"),
+    title: "Listen to the Best Music",
+    subtitle: "Discover new tracks tailored to your generation.",
+  },
+  {
+    image: require("../../assets/onboarding/slide2.png"),
+    title: "Explore Every Generation",
+    subtitle: "From Gen Alpha to Boomers — find your vibe.",
+  },
+  {
+    image: require("../../assets/onboarding/slide3.png"),
+    title: "Save Favorites & Playlists",
+    subtitle: "Build your library and come back anytime.",
+  },
 ];
 
-function CTAButton({ title, onPress }: { title: string; onPress: () => void }) {
-  return (
-    <View style={{ borderRadius: 999, overflow: "hidden" }}>
-      <LinearGradient
-        colors={["#8E59FF", "#C07CFF"]}
-        start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }}
-        style={{ paddingVertical: 16, alignItems: "center", justifyContent: "center" }}
-      >
-        <Text style={{ color: "#fff", fontWeight: "800" }}>{title}</Text>
-      </LinearGradient>
-    </View>
-  );
-}
-
 export default function Onboarding() {
-  const floats = useRef(discs.map(() => new Animated.Value(0))).current;
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const listRef = useRef<FlatList>(null);
+  const [index, setIndex] = useState(0);
 
-  useEffect(() => {
-    floats.forEach((v, i) => {
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(v, { toValue: 1, duration: 2600 + i * 180, useNativeDriver: true }),
-          Animated.timing(v, { toValue: 0, duration: 2600 + i * 180, useNativeDriver: true }),
-        ])
-      ).start();
-    });
-  }, []);
+  const onViewableItemsChanged = (info: { viewableItems: Array<{ index?: number | null }> }) => {
+    const i = info.viewableItems[0]?.index ?? 0;
+    if (typeof i === "number") setIndex(i);
+  };
+  const viewConfigRef = useRef({ viewAreaCoveragePercentThreshold: 60 });
+
+  const goNext = () => {
+    if (index < slides.length - 1) listRef.current?.scrollToIndex({ index: index + 1, animated: true });
+  };
+  const skipToEnd = () => listRef.current?.scrollToIndex({ index: slides.length - 1, animated: true });
+  const getStarted = () => router.replace("/login"); // ✅ groups are not part of the path
+
+  // Reserve consistent room for bottom controls + device inset
+  const BUTTON_HEIGHT = 54;
+  const BOTTOM_SPACING = 18;
+  const CONTROLS_BLOCK = BUTTON_HEIGHT + BOTTOM_SPACING + insets.bottom;
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#0B0E17" }}>
-      {/* Subtle vertical stripes behind everything (optional). Put your file at assets/onboarding/stripes.png or comment ImageBackground out */}
-      <ImageBackground
-        source={require("../../assets/onboarding/stripes.png")}
-        resizeMode="cover"
-        style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0, opacity: 0.25 }}
+    <View style={{ flex: 1, backgroundColor: "#0B0E17" }}>
+      {/* Slides */}
+      <FlatList
+        ref={listRef}
+        data={slides}
+        keyExtractor={(_, i) => String(i)}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        onViewableItemsChanged={onViewableItemsChanged}
+        viewabilityConfig={viewConfigRef.current}
+        renderItem={({ item }) => (
+          <View style={{ width, height }}>
+            <ImageBackground source={item.image} resizeMode="cover" style={{ flex: 1 }}>
+              {/* Darken towards bottom; add padding so text NEVER collides with buttons */}
+              <LinearGradient
+                colors={["rgba(11,14,23,0.08)", "rgba(11,14,23,0.7)", "#0B0E17"]}
+                start={{ x: 0.5, y: 0.1 }}
+                end={{ x: 0.5, y: 1 }}
+                style={{
+                  flex: 1,
+                  paddingHorizontal: 22,
+                  paddingTop: insets.top + 10,
+                  paddingBottom: CONTROLS_BLOCK + 28,
+                  justifyContent: "flex-end",
+                }}
+              >
+                <Text style={{ color: "#9FA8D3", letterSpacing: 2, marginBottom: 6, fontWeight: "800" }}>
+                  SONARA
+                </Text>
+                <Text
+                  style={{
+                    color: "#FFFFFF",
+                    fontSize: 34,
+                    fontWeight: "900",
+                    lineHeight: 40,
+                    marginBottom: 6,
+                  }}
+                >
+                  {item.title.replace("Music", "")}
+                  <Text style={{ color: "#C07CFF" }}> Music</Text>
+                </Text>
+                <Text style={{ color: "#C9CDE6", fontSize: 15 }}>{item.subtitle}</Text>
+              </LinearGradient>
+            </ImageBackground>
+          </View>
+        )}
       />
 
-      {/* Disc belt across the center */}
-      <View style={{ position: "absolute", top: height * 0.23, width: "100%", alignItems: "center" }}>
-        <View style={{ flexDirection: "row", columnGap: 14 }}>
-          {discs.map((src, i) => {
-            const translateY = floats[i].interpolate({ inputRange: [0, 1], outputRange: [0, i % 2 ? -10 : 10] });
+      {/* Pagination + Actions — anchored with safe-area bottom */}
+      <View
+        style={{
+          position: "absolute",
+          left: 20,
+          right: 20,
+          bottom: insets.bottom + 12, // 👈 platform-safe anchoring
+          alignItems: "center",
+        }}
+        pointerEvents="box-none"
+      >
+        {/* Dots */}
+        <View style={{ flexDirection: "row", marginBottom: 12 }}>
+          {slides.map((_, i) => {
+            const active = i === index;
             return (
-              <Animated.View key={i} style={{ transform: [{ translateY }], opacity: 0.95 }}>
-                <Image source={src} style={{ width: DISC, height: DISC, borderRadius: DISC }} />
-              </Animated.View>
+              <View
+                key={i}
+                style={{
+                  width: active ? 22 : 8,
+                  height: 8,
+                  borderRadius: 999,
+                  marginHorizontal: 4,
+                  backgroundColor: active ? "#C07CFF" : "rgba(255,255,255,0.38)",
+                }}
+              />
             );
           })}
         </View>
-      </View>
 
-      {/* Headline & CTA pinned near bottom and centered horizontally */}
-      <View style={{ flex: 1, justifyContent: "flex-end", paddingHorizontal: 20, paddingBottom: 40 }}>
-        <Text style={{ color: "#B7BCD3", letterSpacing: 2, marginBottom: 6 }}>SONARA</Text>
-        <Text style={{ color: "#fff", fontSize: 34, fontWeight: "900", lineHeight: 40 }}>
-          Listen to the <Text style={{ color: "#C07CFF" }}>Best Music</Text>{"\n"}Everyday
-        </Text>
+        {/* Buttons */}
+        {index < slides.length - 1 ? (
+          <View style={{ width: "100%", flexDirection: "row", gap: 12 }}>
+            <Pressable
+              onPress={skipToEnd}
+              style={{
+                flex: 1,
+                height: BUTTON_HEIGHT,
+                borderRadius: 999,
+                borderWidth: 1,
+                borderColor: "rgba(255,255,255,0.22)",
+                backgroundColor: "rgba(255,255,255,0.07)",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Text style={{ color: "#fff", fontWeight: "800" }}>Skip</Text>
+            </Pressable>
 
-        <Link href="/(auth)/login" asChild>
-          <View style={{ marginTop: 22 }}>
-            <CTAButton title="Let's Get Started" onPress={() => {}} />
+            <Pressable
+              onPress={goNext}
+              style={{
+                flex: 2,
+                height: BUTTON_HEIGHT,
+                borderRadius: 999,
+                overflow: "hidden",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <LinearGradient
+                colors={["#8E59FF", "#C07CFF"]}
+                start={{ x: 0, y: 0.5 }}
+                end={{ x: 1, y: 0.5 }}
+                style={{ position: "absolute", inset: 0, borderRadius: 999 }}
+              />
+              <Text style={{ color: "#fff", fontWeight: "900" }}>Next</Text>
+            </Pressable>
           </View>
-        </Link>
-
-        <Text style={{ color: "#B7BCD3", marginTop: 10, opacity: 0.7, fontSize: 12, textAlign: "center" }}>
-          Version 1.2.1
-        </Text>
+        ) : (
+          <Pressable
+            onPress={getStarted}
+            style={{
+              width: "100%",
+              height: BUTTON_HEIGHT,
+              borderRadius: 999,
+              overflow: "hidden",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <LinearGradient
+              colors={["#8E59FF", "#C07CFF"]}
+              start={{ x: 0, y: 0.5 }}
+              end={{ x: 1, y: 0.5 }}
+              style={{ position: "absolute", inset: 0, borderRadius: 999 }}
+            />
+            <Text style={{ color: "#fff", fontWeight: "900" }}>Let’s Get Started</Text>
+          </Pressable>
+        )}
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
