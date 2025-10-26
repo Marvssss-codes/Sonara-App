@@ -42,7 +42,7 @@ export default function Login() {
         <ScrollView contentContainerStyle={{ padding: 20, paddingTop: 28, paddingBottom: 32 }}>
           <View style={{ gap: 14 }}>
             <GlassInput icon="mail" placeholder="Email" keyboardType="email-address" autoCapitalize="none" value={email} onChangeText={setEmail} />
-            <GlassInput icon="lock-closed" placeholder="Password" secureTextEntry value={pwd} onChangeText={setPwd} />
+<GlassInput icon="lock-closed" placeholder="Password" secure value={pwd} onChangeText={setPwd} />
           </View>
 
           <View style={{ alignItems: "flex-end", marginTop: 10 }}>

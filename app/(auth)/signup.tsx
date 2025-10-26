@@ -63,8 +63,8 @@ export default function Signup() {
             <GlassInput icon="person" placeholder="Name" value={name} onChangeText={setName} />
             <GlassInput icon="calendar" placeholder="Birth year (e.g., 2002)" keyboardType="numeric" value={birthYear} onChangeText={setBirthYear} />
             <GlassInput icon="mail" placeholder="Email" keyboardType="email-address" autoCapitalize="none" value={email} onChangeText={setEmail} />
-            <GlassInput icon="lock-closed" placeholder="Password" secureTextEntry value={pwd} onChangeText={setPwd} />
-            <GlassInput icon="lock-closed" placeholder="Confirm password" secureTextEntry value={confirmPwd} onChangeText={setConfirmPwd} />
+            <GlassInput icon="lock-closed" placeholder="Password" secure value={pwd} onChangeText={setPwd} />
+<GlassInput icon="lock-closed" placeholder="Confirm password" secure value={confirmPwd} onChangeText={setConfirmPwd} />
           </View>
 
           <GradientButton title={loading ? "Creating..." : "Sign up"} onPress={handleSignup} style={{ marginTop: 16 }} />
