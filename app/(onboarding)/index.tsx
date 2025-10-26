@@ -1,10 +1,10 @@
 import { useEffect, useRef } from "react";
-import { View, Text, Image, Animated, Dimensions, ImageBackground } from "react-native";
+import { View, Text, Image, Animated, Dimensions, ImageBackground, SafeAreaView } from "react-native";
 import { Link } from "expo-router";
-import GradientButton from "../../components/GradientButton";
+import { LinearGradient } from "expo-linear-gradient";
 
-const { width } = Dimensions.get("window");
-const DISC_SIZE = width * 0.22;
+const { width, height } = Dimensions.get("window");
+const DISC = width * 0.22;
 
 const discs = [
   require("../../assets/onboarding/disc1.png"),
@@ -14,56 +14,74 @@ const discs = [
   require("../../assets/onboarding/disc5.png"),
 ];
 
+function CTAButton({ title, onPress }: { title: string; onPress: () => void }) {
+  return (
+    <View style={{ borderRadius: 999, overflow: "hidden" }}>
+      <LinearGradient
+        colors={["#8E59FF", "#C07CFF"]}
+        start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }}
+        style={{ paddingVertical: 16, alignItems: "center", justifyContent: "center" }}
+      >
+        <Text style={{ color: "#fff", fontWeight: "800" }}>{title}</Text>
+      </LinearGradient>
+    </View>
+  );
+}
+
 export default function Onboarding() {
   const floats = useRef(discs.map(() => new Animated.Value(0))).current;
 
   useEffect(() => {
-    floats.forEach((val, i) => {
+    floats.forEach((v, i) => {
       Animated.loop(
         Animated.sequence([
-          Animated.timing(val, { toValue: 1, duration: 2600 + i * 180, useNativeDriver: true }),
-          Animated.timing(val, { toValue: 0, duration: 2600 + i * 180, useNativeDriver: true }),
+          Animated.timing(v, { toValue: 1, duration: 2600 + i * 180, useNativeDriver: true }),
+          Animated.timing(v, { toValue: 0, duration: 2600 + i * 180, useNativeDriver: true }),
         ])
       ).start();
     });
   }, []);
 
   return (
-    <View className="flex-1 bg-bg">
-      {/* subtle stripes bg */}
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#0B0E17" }}>
+      {/* Subtle vertical stripes behind everything (optional). Put your file at assets/onboarding/stripes.png or comment ImageBackground out */}
       <ImageBackground
         source={require("../../assets/onboarding/stripes.png")}
         resizeMode="cover"
-        className="absolute inset-0 opacity-30"
+        style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0, opacity: 0.25 }}
       />
 
-      {/* disc belt */}
-      <View className="absolute top-24 w-full items-center">
-        <View className="flex-row space-x-4">
+      {/* Disc belt across the center */}
+      <View style={{ position: "absolute", top: height * 0.23, width: "100%", alignItems: "center" }}>
+        <View style={{ flexDirection: "row", columnGap: 14 }}>
           {discs.map((src, i) => {
-            const translateY = floats[i].interpolate({ inputRange: [0,1], outputRange: [0, i % 2 ? -10 : 10] });
+            const translateY = floats[i].interpolate({ inputRange: [0, 1], outputRange: [0, i % 2 ? -10 : 10] });
             return (
-              <Animated.View key={i} style={{ transform: [{ translateY }], opacity: 0.9 }}>
-                <Image source={src} style={{ width: DISC_SIZE, height: DISC_SIZE, borderRadius: DISC_SIZE }} />
+              <Animated.View key={i} style={{ transform: [{ translateY }], opacity: 0.95 }}>
+                <Image source={src} style={{ width: DISC, height: DISC, borderRadius: DISC }} />
               </Animated.View>
             );
           })}
         </View>
       </View>
 
-      {/* headline + CTA */}
-      <View className="flex-1 justify-end px-5 pb-12">
-        <Text className="text-textSoft tracking-wide2 mb-1">SONARA</Text>
-        <Text className="text-text text-[34px] leading-[40px] font-extrabold">
-          Listen to the <Text className="text-primary2">Best Music</Text>{"\n"}Everyday
+      {/* Headline & CTA pinned near bottom and centered horizontally */}
+      <View style={{ flex: 1, justifyContent: "flex-end", paddingHorizontal: 20, paddingBottom: 40 }}>
+        <Text style={{ color: "#B7BCD3", letterSpacing: 2, marginBottom: 6 }}>SONARA</Text>
+        <Text style={{ color: "#fff", fontSize: 34, fontWeight: "900", lineHeight: 40 }}>
+          Listen to the <Text style={{ color: "#C07CFF" }}>Best Music</Text>{"\n"}Everyday
         </Text>
 
         <Link href="/(auth)/login" asChild>
-          <GradientButton title="Let's Get Started" style={{ marginTop: 22 }} />
+          <View style={{ marginTop: 22 }}>
+            <CTAButton title="Let's Get Started" onPress={() => {}} />
+          </View>
         </Link>
 
-        <Text className="text-textSoft mt-3 opacity-70 text-xs">Version 1.2.1</Text>
+        <Text style={{ color: "#B7BCD3", marginTop: 10, opacity: 0.7, fontSize: 12, textAlign: "center" }}>
+          Version 1.2.1
+        </Text>
       </View>
-    </View>
+    </SafeAreaView>
   );
 }

@@ -1,7 +1,5 @@
-// components/GlassInput.tsx
 import { View, TextInput, TextInputProps } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { theme } from "../lib/theme";
 
 export default function GlassInput({
   icon,
@@ -10,25 +8,17 @@ export default function GlassInput({
   return (
     <View
       style={{
-        flexDirection: "row",
-        alignItems: "center",
-        borderRadius: theme.radius.lg,
-        borderWidth: 1,
-        borderColor: theme.colors.border,
-        backgroundColor: theme.colors.glass,
-        paddingHorizontal: 12,
+        flexDirection: "row", alignItems: "center",
+        borderRadius: 16, borderWidth: 1,
+        borderColor: "rgba(255,255,255,0.12)",
+        backgroundColor: "rgba(255,255,255,0.06)",
+        paddingHorizontal: 12
       }}
     >
-      <Ionicons name={icon} size={18} color={theme.colors.textSoft} />
+      <Ionicons name={icon} size={18} color="#B7BCD3" />
       <TextInput
-        placeholderTextColor={theme.colors.textSoft}
-        style={{
-          flex: 1,
-          color: theme.colors.text,
-          paddingVertical: 12,
-          paddingLeft: 8,
-          fontSize: 16,
-        }}
+        placeholderTextColor="#B7BCD3"
+        style={{ flex: 1, color: "#fff", paddingVertical: 12, paddingLeft: 8, fontSize: 16 }}
         {...props}
       />
     </View>

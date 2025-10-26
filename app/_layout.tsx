@@ -10,13 +10,8 @@ SplashScreen.preventAutoHideAsync().catch(() => {});
 export default function RootLayout() {
   const [ready, setReady] = useState(false);
 
-  // This runs when the root view lays out the first time.
   const onLayoutRootView = useCallback(async () => {
-    try {
-      await SplashScreen.hideAsync();
-    } finally {
-      setReady(true);
-    }
+    try { await SplashScreen.hideAsync(); } finally { setReady(true); }
   }, []);
 
   return (
@@ -25,7 +20,6 @@ export default function RootLayout() {
       {ready ? (
         <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: "#0B0E17" } }} />
       ) : (
-        // Fallback UI while we hide the splash (will be very brief)
         <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
           <Text style={{ color: "#fff" }}>Loading…</Text>
         </View>
