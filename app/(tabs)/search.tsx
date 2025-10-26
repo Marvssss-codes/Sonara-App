@@ -112,17 +112,19 @@ export default function Search() {
   const addTo = async (playlistId: string) => {
     if (!selectedTrack) return;
     try {
+      const artworkUrl =
+        typeof selectedTrack.artwork === "string"
+          ? selectedTrack.artwork
+          : selectedTrack.artwork?.["150x150"] ||
+            selectedTrack.artwork?.["480x480"] ||
+            selectedTrack.artwork?.["1000x1000"] ||
+            null;
+
       await addItemToPlaylist(playlistId, {
         track_id: selectedTrack.id,
         title: selectedTrack.title,
         artist: selectedTrack.user?.name || "Unknown",
-        artwork_url:
-          typeof selectedTrack.artwork === "string"
-            ? selectedTrack.artwork
-            : selectedTrack.artwork?.["150x150"] ||
-              selectedTrack.artwork?.["480x480"] ||
-              selectedTrack.artwork?.["1000x1000"] ||
-              null,
+        artwork_url: artworkUrl,
         duration: selectedTrack.duration || null,
       });
       setPickerOpen(false);
@@ -157,12 +159,15 @@ export default function Search() {
         paddingRight: 8,
       }}
     >
-        <Image
+      <Image
         source={{
           uri:
             typeof item.artwork === "string"
               ? item.artwork
-              : "https://placehold.co/80x80/161821/F7F7F7?text=%E2%99%AB",
+              : item.artwork?.["150x150"] ||
+                item.artwork?.["480x480"] ||
+                item.artwork?.["1000x1000"] ||
+                "https://placehold.co/80x80/161821/F7F7F7?text=%E2%99%AB",
         }}
         style={{ width: 48, height: 48, borderRadius: 10 }}
       />
@@ -357,7 +362,10 @@ export default function Search() {
                         uri:
                           typeof t.artwork === "string"
                             ? t.artwork
-                            : "https://placehold.co/320x200/161821/F7F7F7?text=%E2%99%AB",
+                            : t.artwork?.["480x480"] ||
+                              t.artwork?.["150x150"] ||
+                              t.artwork?.["1000x1000"] ||
+                              "https://placehold.co/320x200/161821/F7F7F7?text=%E2%99%AB",
                       }}
                       style={{ width: 180, height: 110 }}
                     />

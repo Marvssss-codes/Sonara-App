@@ -1,47 +1,75 @@
-// Minimal Audius client for public endpoints
-// Docs pattern: https://api.audius.co/v1/...
-const API = "https://api.audius.co/v1";
-const APP = "sonara"; // app name for rate limiting identification
-
-async function fetchJson<T>(url: string): Promise<T> {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`Audius ${res.status}: ${await res.text()}`);
-  return res.json() as Promise<T>;
-}
-
+// lib/audius.ts
+export type AudiusUser = { id: string; name: string; image?: string | null };
 export type AudiusTrack = {
   id: string;
   title: string;
-  user: { handle: string; name: string };
-  artwork: { "150x150": string; "480x480": string; "1000x1000": string } | null;
-  duration: number;
-  genre?: string;
-  mood?: string;
-  permalink: string;
+  duration?: number | null;
+  artwork?: string | null;
+  user?: AudiusUser;
 };
 
-type TracksResp = { data: AudiusTrack[] };
+const BASE = "https://discoveryprovider.audius.co/v1";
+const APP = "sonara";
 
-export async function getTrendingAll(time: "week" | "month" | "year" = "week") {
-  const url = `${API}/tracks/trending?time=${time}&app_name=${APP}`;
-  const json = await fetchJson<TracksResp>(url);
-  return json.data;
+// pick the highest quality available from an images object like {150x150, 480x480, 1000x1000}
+function pickImage(images?: Record<string, string> | null): string | null {
+  if (!images) return null;
+  return (
+    images["1000x1000"] ||
+    images["480x480"] ||
+    images["150x150"] ||
+    null
+  );
 }
 
-export async function getTrendingByGenre(genre: string, time: "week" | "month" | "year" = "week") {
-  const url = `${API}/tracks/trending?genre=${encodeURIComponent(genre)}&time=${time}&app_name=${APP}`;
-  const json = await fetchJson<TracksResp>(url);
-  return json.data;
+// ensure we always return https urls (RN/iOS blocks http)
+function ensureHttps(url?: string | null) {
+  if (!url) return null;
+  if (url.startsWith("//")) return `https:${url}`;
+  if (url.startsWith("http://")) return url.replace("http://", "https://");
+  return url;
 }
 
-// lib/audius.ts (add this)
+export function normalizeTrack(t: any): AudiusTrack {
+  const artwork =
+    pickImage(t?.artwork) ||
+    pickImage(t?.cover_art) || // some endpoints use cover_art
+    pickImage(t?.downloadable?.artwork) ||
+    pickImage(t?.remix_of?.tracks?.[0]?.artwork) ||
+    null;
+
+  const userImg =
+    pickImage(t?.user?.profile_picture_sizes) ||
+    pickImage(t?.user?.profile_picture) ||
+    null;
+
+  return {
+    id: String(t?.id),
+    title: String(t?.title ?? "Untitled"),
+    duration: t?.duration ?? null,
+    artwork: ensureHttps(artwork) || ensureHttps(userImg), // fallback to artist image
+    user: {
+      id: String(t?.user?.id ?? ""),
+      name: String(t?.user?.name ?? t?.user?.handle ?? "Unknown"),
+      image: ensureHttps(userImg),
+    },
+  };
+}
+
+// ---- SEARCH ----
 export async function searchTracks(query: string, limit = 25): Promise<AudiusTrack[]> {
   if (!query.trim()) return [];
-  const base = "https://discoveryprovider.audius.co/v1";
-  const url = `${base}/tracks/search?query=${encodeURIComponent(query)}&limit=${limit}&app_name=sonara`;
+  const url = `${BASE}/tracks/search?query=${encodeURIComponent(query)}&limit=${limit}&app_name=${APP}`;
   const res = await fetch(url);
   if (!res.ok) return [];
   const json = await res.json();
-  // audius returns { data: [...] }
-  return json?.data || [];
+  return (json?.data || []).map(normalizeTrack);
+}
+
+// (optional) trending helper if you need it elsewhere
+export async function getTrending(limit = 12): Promise<AudiusTrack[]> {
+  const res = await fetch(`${BASE}/tracks/trending?limit=${limit}&app_name=${APP}`);
+  if (!res.ok) return [];
+  const json = await res.json();
+  return (json?.data || []).map(normalizeTrack);
 }
