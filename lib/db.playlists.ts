@@ -59,3 +59,23 @@ export async function removeItem(id: string) {
   const { error } = await supa.from("playlist_items").delete().eq("id", id);
   if (error) throw error;
 }
+
+// lib/db.playlists.ts
+import { supa } from "./supabase";
+
+// ...existing types & functions...
+
+export async function getPlaylistMeta(id: string) {
+  const { data, error } = await supa
+    .from("playlists")
+    .select("id,name,cover_url,created_at")
+    .eq("id", id)
+    .single();
+  if (error) throw error;
+  return data as { id: string; name: string; cover_url: string | null; created_at: string };
+}
+
+export async function updatePlaylistCover(id: string, cover_url: string | null) {
+  const { error } = await supa.from("playlists").update({ cover_url }).eq("id", id);
+  if (error) throw error;
+}
