@@ -10,6 +10,7 @@ import CategoryChip from "../../components/CategoryChip";
 import SongCard from "../../components/SongCard";
 import PlaylistPill from "../../components/PlaylistPill";
 import TopMenu from "../../components/TopMenu";
+import SafeImage from "../../components/SafeImage";
 
 const CATS = ["All", "Hip-Hop/Rap", "Pop", "Electronic", "Rock", "R&B/Soul", "Jazz", "Blues"];
 
@@ -188,7 +189,7 @@ export default function Home() {
                   key={p.id}
                   title={p.name}
                   image={p.cover_url}
-                  onPress={() => router.push(`/playlist/${p.id}`)}
+                  onPress={() => router.push({ pathname: "/playlist/[id]", params: { id: p.id } })}
                 />
               ))}
             </View>

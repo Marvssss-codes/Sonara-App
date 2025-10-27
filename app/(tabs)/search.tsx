@@ -6,7 +6,6 @@ import {
   TextInput,
   Pressable,
   FlatList,
-  Image,
   Keyboard,
   Modal,
   Alert,
@@ -23,15 +22,106 @@ import {
   createPlaylist,
   Playlist,
 } from "../../lib/db.playlists";
+import { toggleFavorite } from "../../lib/db.favorites";
+import SafeImage from "../../components/SafeImage";
 
 const BG = "#0B0E17";
 const CARD = "rgba(255,255,255,0.06)";
 const STROKE = "rgba(255,255,255,0.12)";
 const SUBTLE = "#A4A8B8";
 const ACCENT = "#8E59FF";
-const ACCENT_2 = "#C07CFF";
 
 const CATEGORIES = ["New Music", "Top", "Podcasts", "Free", "Artists", "Genres"];
+
+// ---- helpers ----
+const normalizeArt = (art: AudiusTrack["artwork"]) => {
+  if (!art) return null;
+  if (typeof art === "string") return art;
+  return art["150x150"] || art["480x480"] || art["1000x1000"] || null;
+};
+
+// A tiny row component so we can safely use hooks (no hooks in plain functions)
+function SearchRow({
+  item,
+  onAdd,
+}: {
+  item: AudiusTrack;
+  onAdd: () => void;
+}) {
+  const [liked, setLiked] = useState(false);
+  const artwork = normalizeArt(item.artwork);
+
+  const onToggleHeart = async () => {
+    try {
+      const next = await toggleFavorite({
+        id: item.id,
+        title: item.title,
+        user: { name: item.user?.name || "Unknown" },
+        artwork: artwork,
+      });
+      setLiked(next);
+    } catch (e) {
+      Alert.alert("Error", "Could not update favorites.");
+    }
+  };
+
+  return (
+    <View
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        paddingVertical: 8,
+        paddingRight: 8,
+      }}
+    >
+      <SafeImage
+        uri={artwork}
+        style={{ width: 72, height: 72, borderRadius: 10 }}
+        contentFit="cover"
+      />
+
+      <View style={{ flex: 1, marginLeft: 12 }}>
+        <Text style={{ color: "#fff", fontWeight: "800" }} numberOfLines={1}>
+          {item.title}
+        </Text>
+        <Text style={{ color: SUBTLE, fontSize: 12 }} numberOfLines={1}>
+          {item.user?.name || "Unknown"}
+        </Text>
+      </View>
+
+      {/* heart */}
+      <Pressable
+        onPress={onToggleHeart}
+        style={{
+          padding: 6,
+          marginRight: 6,
+          borderRadius: 999,
+          backgroundColor: "rgba(255,255,255,0.06)",
+          borderWidth: 1,
+          borderColor: STROKE,
+        }}
+      >
+        <Ionicons name={liked ? "heart" : "heart-outline"} size={18} color="#FF7B93" />
+      </Pressable>
+
+      {/* add */}
+      <Pressable onPress={onAdd} style={{ padding: 6 }}>
+        <View
+          style={{
+            width: 32,
+            height: 32,
+            borderRadius: 999,
+            backgroundColor: ACCENT,
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <Ionicons name="add" size={18} color="#fff" />
+        </View>
+      </Pressable>
+    </View>
+  );
+}
 
 export default function Search() {
   const insets = useSafeAreaInsets();
@@ -86,7 +176,8 @@ export default function Search() {
   }, []);
 
   useEffect(() => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (debounceRef.current) clearTimeout(debounceRef.current as unknown as number);
+    // @ts-ignore – RN timers fine with number
     debounceRef.current = setTimeout(async () => {
       const term = q.trim();
       setWorkingQ(term);
@@ -100,7 +191,9 @@ export default function Search() {
         setLoading(false);
       }
     }, 350);
-    return () => debounceRef.current && clearTimeout(debounceRef.current);
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current as unknown as number);
+    };
   }, [q]);
 
   const openPicker = (track: AudiusTrack) => {
@@ -112,14 +205,7 @@ export default function Search() {
   const addTo = async (playlistId: string) => {
     if (!selectedTrack) return;
     try {
-      const artworkUrl =
-        typeof selectedTrack.artwork === "string"
-          ? selectedTrack.artwork
-          : selectedTrack.artwork?.["150x150"] ||
-            selectedTrack.artwork?.["480x480"] ||
-            selectedTrack.artwork?.["1000x1000"] ||
-            null;
-
+      const artworkUrl = normalizeArt(selectedTrack.artwork);
       await addItemToPlaylist(playlistId, {
         track_id: selectedTrack.id,
         title: selectedTrack.title,
@@ -149,61 +235,6 @@ export default function Search() {
       Alert.alert("Error", e?.message ?? "Could not create playlist.");
     }
   };
-
-  const renderRow = (item: AudiusTrack) => (
-    <View
-      style={{
-        flexDirection: "row",
-        alignItems: "center",
-        paddingVertical: 8,
-        paddingRight: 8,
-      }}
-    >
-      <Image
-        source={{
-          uri:
-            typeof item.artwork === "string"
-              ? item.artwork
-              : item.artwork?.["150x150"] ||
-                item.artwork?.["480x480"] ||
-                item.artwork?.["1000x1000"] ||
-                "https://placehold.co/80x80/161821/F7F7F7?text=%E2%99%AB",
-        }}
-        style={{ width: 48, height: 48, borderRadius: 10 }}
-      />
-      <View style={{ flex: 1, marginLeft: 12 }}>
-        <Text style={{ color: "#fff", fontWeight: "800" }} numberOfLines={1}>
-          {item.title}
-        </Text>
-        <Text style={{ color: SUBTLE, fontSize: 12 }} numberOfLines={1}>
-          {item.user?.name || "Unknown"}
-        </Text>
-      </View>
-
-      <Pressable
-        onPress={() => Alert.alert("Coming soon", "More options will be here.")}
-        style={{ padding: 8 }}
-      >
-        <Ionicons name="ellipsis-vertical" size={16} color="#9EA3B5" />
-      </Pressable>
-
-      {/* Add button in Sonara accent */}
-      <Pressable onPress={() => openPicker(item)} style={{ padding: 6, marginLeft: 2 }}>
-        <View
-          style={{
-            width: 32,
-            height: 32,
-            borderRadius: 999,
-            backgroundColor: ACCENT,
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <Ionicons name="add" size={18} color="#fff" />
-        </View>
-      </Pressable>
-    </View>
-  );
 
   return (
     <View style={{ flex: 1, backgroundColor: BG }}>
@@ -256,7 +287,7 @@ export default function Search() {
           </View>
         </View>
 
-        {/* Category chips (purple accent) */}
+        {/* Category chips */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -313,7 +344,9 @@ export default function Search() {
               Results for “{workingQ}”
             </Text>
           }
-          renderItem={({ item }) => renderRow(item)}
+          renderItem={({ item }) => (
+            <SearchRow item={item} onAdd={() => openPicker(item)} />
+          )}
         />
       ) : (
         <FlatList
@@ -325,7 +358,9 @@ export default function Search() {
           }}
           ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
           ListHeaderComponent={<SectionHeader title="Top Searched Songs" action="See All" />}
-          renderItem={({ item }) => renderRow(item)}
+          renderItem={({ item }) => (
+            <SearchRow item={item} onAdd={() => openPicker(item)} />
+          )}
           ListFooterComponent={
             <>
               <Text
@@ -357,17 +392,10 @@ export default function Search() {
                       borderColor: STROKE,
                     }}
                   >
-                    <Image
-                      source={{
-                        uri:
-                          typeof t.artwork === "string"
-                            ? t.artwork
-                            : t.artwork?.["480x480"] ||
-                              t.artwork?.["150x150"] ||
-                              t.artwork?.["1000x1000"] ||
-                              "https://placehold.co/320x200/161821/F7F7F7?text=%E2%99%AB",
-                      }}
-                      style={{ width: 180, height: 110 }}
+                    <SafeImage
+                      uri={normalizeArt(t.artwork)}
+                      style={{ width: "100%", height: 120 }}
+                      contentFit="cover"
                     />
                     <View style={{ padding: 10 }}>
                       <Text style={{ color: "#fff", fontWeight: "800" }} numberOfLines={1}>
@@ -485,7 +513,7 @@ export default function Search() {
   );
 }
 
-/* UI helpers (Sonara colors) */
+/* UI helpers */
 function Pill({ text }: { text: string }) {
   return (
     <View

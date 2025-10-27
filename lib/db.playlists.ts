@@ -60,11 +60,6 @@ export async function removeItem(id: string) {
   if (error) throw error;
 }
 
-// lib/db.playlists.ts
-import { supa } from "./supabase";
-
-// ...existing types & functions...
-
 export async function getPlaylistMeta(id: string) {
   const { data, error } = await supa
     .from("playlists")

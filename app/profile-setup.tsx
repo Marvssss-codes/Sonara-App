@@ -1,21 +1,15 @@
 // app/profile-setup.tsx
 import { useEffect, useState } from "react";
-import {
-  View,
-  Text,
-  TextInput,
-  Pressable,
-  ScrollView,
-  Image,
-  Alert,
-} from "react-native";
+import { View, Text, TextInput, Pressable, ScrollView, Alert } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
-import * as FileSystem from "expo-file-system";
-import { decode } from "base64-arraybuffer";
+import * as MediaLibrary from "expo-media-library";
+import * as FS from "expo-file-system/legacy";
+import { decode as decodeBase64 } from "base64-arraybuffer";
 import { supa } from "../lib/supabase";
+import SafeImage from "../components/SafeImage";
 
 const GENERATIONS = ["Gen Alpha", "Gen Z", "Millennial", "Gen X", "Boomer", "Silent"];
 const GENRES = ["Pop", "Hip-Hop/Rap", "R&B/Soul", "Rock", "Jazz", "Electronic", "Classical"];
@@ -27,10 +21,16 @@ export default function ProfileSetup() {
   const [displayName, setDisplayName] = useState("");
   const [generation, setGeneration] = useState("");
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
-  const [avatar, setAvatar] = useState<string | null>(null);
+
+  // We keep TWO URIs:
+  // - avatarPreviewUri: can be ph://, file:// → safe for display via SafeImage
+  // - avatarFileUri: guaranteed file:// path for upload
+  const [avatarPreviewUri, setAvatarPreviewUri] = useState<string | null>(null);
+  const [avatarFileUri, setAvatarFileUri] = useState<string | null>(null);
+
   const [loading, setLoading] = useState(false);
 
-  // Ensure session & prefill name
+  // Prefill
   useEffect(() => {
     (async () => {
       const { data } = await supa.auth.getSession();
@@ -52,10 +52,27 @@ export default function ProfileSetup() {
   }, []);
 
   const toggleGenre = (g: string) => {
-    setSelectedGenres((prev) =>
-      prev.includes(g) ? prev.filter((x) => x !== g) : [...prev, g]
-    );
+    setSelectedGenres((prev) => (prev.includes(g) ? prev.filter((x) => x !== g) : [...prev, g]));
   };
+
+  // Convert iOS ph:// asset into a real file:// path for upload
+  async function resolveUploadFilePathFromAsset(assetId?: string, fallbackUri?: string) {
+    try {
+      if (assetId) {
+        const perm = await MediaLibrary.requestPermissionsAsync();
+        if (!perm.granted) return fallbackUri ?? null;
+        const info = await MediaLibrary.getAssetInfoAsync(assetId);
+        // localUri can be undefined; if so, copy to cache
+        if (info.localUri) return info.localUri;
+        if (info.uri) {
+          const dest = `${FS.cacheDirectory}avatar-${assetId}.${(info.filename || "jpg").split(".").pop()}`;
+          await FS.copyAsync({ from: info.uri, to: dest });
+          return dest;
+        }
+      }
+    } catch {}
+    return fallbackUri ?? null;
+  }
 
   const pickAvatar = async () => {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -63,13 +80,21 @@ export default function ProfileSetup() {
       Alert.alert("Permission needed", "Allow photo access to choose an avatar.");
       return;
     }
+
     const res = await ImagePicker.launchImageLibraryAsync({
       allowsEditing: true,
-      quality: 0.8,
+      quality: 0.9,
       aspect: [1, 1],
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
     });
-    if (!res.canceled) setAvatar(res.assets[0].uri); // file:// or content://
+    if (res.canceled) return;
+
+    const asset = res.assets[0];
+    const previewUri = asset?.uri || null;        // can be ph:// on iOS → fine for preview
+    const uploadUri = await resolveUploadFilePathFromAsset(asset?.assetId, asset?.uri); // aim for file://
+
+    setAvatarPreviewUri(previewUri);
+    setAvatarFileUri(uploadUri);
   };
 
   const extAndMime = (uri: string) => {
@@ -94,7 +119,6 @@ export default function ProfileSetup() {
     try {
       setLoading(true);
 
-      // Guard session
       const { data: session } = await supa.auth.getSession();
       const uid = session.session?.user?.id;
       if (!uid) {
@@ -104,19 +128,16 @@ export default function ProfileSetup() {
         return;
       }
 
-      // Upload avatar (safe path: FileSystem -> base64 -> ArrayBuffer)
       let avatar_url: string | null = null;
-      if (avatar) {
-        try {
-          const { ext, mime } = extAndMime(avatar);
-          const fileName = `avatars/${uid}.${ext}`;
 
-          // NOTE: use literal "base64" (EncodingType may be undefined on some SDKs)
-          const base64 = await FileSystem.readAsStringAsync(avatar, {
-            // @ts-ignore - RN accepts string literal
-            encoding: "base64",
-          });
-          const arrayBuffer = decode(base64);
+      // Upload using the guaranteed file path
+      if (avatarFileUri) {
+        try {
+          const { ext, mime } = extAndMime(avatarFileUri);
+          const fileName = `avatars/${uid}.${ext}`;
+          const normalized = avatarFileUri.startsWith("file://") ? avatarFileUri : `file://${avatarFileUri}`;
+          const base64 = await FS.readAsStringAsync(normalized, { /* @ts-ignore */ encoding: FS.EncodingType.Base64 });
+          const arrayBuffer = decodeBase64(base64);
 
           const { error: uploadErr } = await supa.storage
             .from("avatars")
@@ -126,12 +147,10 @@ export default function ProfileSetup() {
           const { data: publicUrl } = supa.storage.from("avatars").getPublicUrl(fileName);
           avatar_url = publicUrl.publicUrl;
         } catch (e: any) {
-          // If avatar upload fails, continue with profile save (don’t block)
           console.warn("Avatar upload failed:", e?.message || e);
         }
       }
 
-      // Upsert profile
       const { error } = await supa.from("profiles").upsert({
         id: uid,
         display_name: displayName,
@@ -164,6 +183,7 @@ export default function ProfileSetup() {
         Complete Your Profile
       </Text>
 
+      {/* Avatar preview (never crashes) */}
       <Pressable
         onPress={pickAvatar}
         style={{
@@ -178,8 +198,8 @@ export default function ProfileSetup() {
           marginBottom: 20,
         }}
       >
-        {avatar ? (
-          <Image source={{ uri: avatar }} style={{ width: "100%", height: "100%" }} />
+        {avatarPreviewUri ? (
+          <SafeImage uri={avatarPreviewUri} style={{ width: "100%", height: "100%" }} contentFit="cover" />
         ) : (
           <Text style={{ color: "#aaa" }}>Pick Avatar</Text>
         )}
@@ -219,10 +239,7 @@ export default function ProfileSetup() {
                 prev.includes(g) ? prev.filter((x) => x !== g) : [...prev, g]
               )
             }
-            style={[
-              styles.genreChip,
-              selectedGenres.includes(g) && { backgroundColor: "#8E59FF" },
-            ]}
+            style={[styles.genreChip, selectedGenres.includes(g) && { backgroundColor: "#8E59FF" }]}
           >
             <Text style={{ color: selectedGenres.includes(g) ? "#fff" : "#ccc", fontWeight: "600" }}>
               {g}

@@ -1,25 +1,48 @@
-import { View, Text, Image, Pressable, ViewStyle } from "react-native";
+// components/PlaylistPill.tsx
+import React from "react";
+import { View, Text, Pressable } from "react-native";
+import SafeImage from "./SafeImage";
+
+const CARD = "rgba(255,255,255,0.06)";
+const STROKE = "rgba(255,255,255,0.10)";
 
 export default function PlaylistPill({
   title,
   image,
   onPress,
-  style
 }: {
   title: string;
-  image?: string | null;
-  onPress?: () => void;
-  style?: ViewStyle;
+  image: string | null;
+  onPress: () => void;
 }) {
   return (
-    <Pressable onPress={onPress} style={[{ width: "48%", height: 64, borderRadius: 14, overflow:"hidden", backgroundColor:"#1A2136", flexDirection:"row", alignItems:"center" }, style]}>
-      <Image
-        source={{ uri: image || "https://placehold.co/80x80/111/FFF.png?text=PL" }}
-        style={{ width: 64, height: 64 }}
+    <Pressable
+      onPress={onPress}
+      style={{
+        width: "48%",
+        height: 64,
+        borderRadius: 14,
+        overflow: "hidden",
+        backgroundColor: CARD,
+        borderWidth: 1,
+        borderColor: STROKE,
+        flexDirection: "row",
+        alignItems: "center",
+      }}
+    >
+      <SafeImage
+        uri={image ?? null}
+        style={{ width: 64, height: "100%" }}
+        contentFit="cover"
       />
-      <Text numberOfLines={1} style={{ color:"#fff", fontWeight:"800", marginLeft:10, marginRight:10, flex:1 }}>
-        {title}
-      </Text>
+      <View style={{ flex: 1, paddingHorizontal: 10 }}>
+        <Text style={{ color: "#fff", fontWeight: "900" }} numberOfLines={1}>
+          {title}
+        </Text>
+        <Text style={{ color: "#B7BCD3", fontSize: 12 }} numberOfLines={1}>
+          Open playlist
+        </Text>
+      </View>
     </Pressable>
   );
 }
