@@ -45,3 +45,13 @@ export async function searchTracks(query: string, limit = 25): Promise<AudiusTra
   // audius returns { data: [...] }
   return json?.data || [];
 }
+
+// lib/audius.ts (add at bottom)
+
+/** Get a fresh stream URL for an Audius track id. */
+export function getStreamUrl(trackId: string) {
+  // Audius returns a 302 to the actual MP3 – expo-av follows redirects fine.
+  return `https://discoveryprovider.audius.co/v1/tracks/${encodeURIComponent(
+    trackId
+  )}/stream?app_name=sonara`;
+}

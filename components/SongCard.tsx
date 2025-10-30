@@ -1,7 +1,8 @@
 // components/SongCard.tsx
-import React, { useState, useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { View, Text, Pressable } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import SafeImage from "./SafeImage";
 import { toggleFavorite } from "../lib/db.favorites";
 
@@ -14,42 +15,70 @@ export type SongCardTrack = {
 
 export default function SongCard({
   track,
-  onPress,
-  onAdd,
-  showHeart = true, // allow search/home to show the heart
+  onPress,          // optional custom press handler
+  onAdd,            // optional "Add" action (e.g., add to playlist)
+  showHeart = true, // show/hide heart button
 }: {
   track: SongCardTrack;
   onPress?: () => void;
   onAdd?: () => void;
   showHeart?: boolean;
 }) {
+  const router = useRouter();
   const [liked, setLiked] = useState(false);
 
   // Normalize artwork once
   const artwork = useMemo(() => {
-    if (!track.artwork) return null;
+    if (!track?.artwork) return null;
     if (typeof track.artwork === "string") return track.artwork;
-    return track.artwork["150x150"] || track.artwork["480x480"] || track.artwork["1000x1000"] || null;
-  }, [track.artwork]);
+    return (
+      (track.artwork["150x150"] as string) ||
+      (track.artwork["480x480"] as string) ||
+      (track.artwork["1000x1000"] as string) ||
+      null
+    );
+  }, [track?.artwork]);
+
+  const artistName = useMemo(
+    () => (track?.user?.name ? String(track.user.name) : "Unknown"),
+    [track?.user?.name]
+  );
+
+  const handleCardPress = () => {
+    if (onPress) {
+      onPress();
+      return;
+    }
+    // Default: open the player and pass minimal safe params
+    router.push({
+      pathname: "/player",
+      params: {
+        id: track.id,
+        title: encodeURIComponent(track.title),
+        artist: encodeURIComponent(artistName),
+        artwork: encodeURIComponent(artwork || ""),
+      },
+    });
+  };
 
   const onToggleHeart = async () => {
     try {
       const next = await toggleFavorite({
         id: track.id,
         title: track.title,
-        user: { name: track.user?.name || "Unknown" },
+        user: { name: artistName },
         artwork,
       });
       setLiked(next);
     } catch (e) {
-      // Optional: toast
+      // Optionally show a toast here
       console.log("favorite toggle failed", e);
     }
   };
 
   return (
     <Pressable
-      onPress={onPress}
+      onPress={handleCardPress}
       style={{
         width: 160,
         borderRadius: 14,
@@ -64,7 +93,11 @@ export default function SongCard({
 
         {showHeart && (
           <Pressable
-            onPress={onToggleHeart}
+            // stop the press from bubbling to the card (so it won't open player)
+            onPress={(e: any) => {
+              e?.stopPropagation?.();
+              onToggleHeart();
+            }}
             style={{
               position: "absolute",
               right: 8,
@@ -84,12 +117,15 @@ export default function SongCard({
           {track.title}
         </Text>
         <Text style={{ color: "#A4A8B8", fontSize: 12 }} numberOfLines={1}>
-          {track.user?.name || "Unknown"}
+          {artistName}
         </Text>
 
         {onAdd ? (
           <Pressable
-            onPress={onAdd}
+            onPress={(e: any) => {
+              e?.stopPropagation?.(); // don't open player when tapping "Add"
+              onAdd();
+            }}
             style={{
               alignSelf: "flex-start",
               marginTop: 6,
