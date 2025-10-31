@@ -15,7 +15,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { searchTracks, AudiusTrack } from "../../lib/audius";
+import { searchTracks, AudiusTrack, streamUrlFor as _streamUrlFor } from "../../lib/audius";
 import {
   getMyPlaylists,
   addItemToPlaylist,
@@ -24,6 +24,7 @@ import {
 } from "../../lib/db.playlists";
 import { toggleFavorite } from "../../lib/db.favorites";
 import SafeImage from "../../components/SafeImage";
+import { usePlayback } from "../../contexts/PlaybackContext";
 
 const BG = "#0B0E17";
 const CARD = "rgba(255,255,255,0.06)";
@@ -33,20 +34,30 @@ const ACCENT = "#8E59FF";
 
 const CATEGORIES = ["New Music", "Top", "Podcasts", "Free", "Artists", "Genres"];
 
-// ---- helpers ----
+/* ---------- helpers ---------- */
 const normalizeArt = (art: AudiusTrack["artwork"]) => {
   if (!art) return null;
   if (typeof art === "string") return art;
   return art["150x150"] || art["480x480"] || art["1000x1000"] || null;
 };
 
-// A tiny row component so we can safely use hooks (no hooks in plain functions)
+const resolveStreamUrl = (id: string) => {
+  try {
+    const fn = _streamUrlFor as unknown as (x: string) => string;
+    if (typeof fn === "function") return String(fn(id));
+  } catch {}
+  return `https://discoveryprovider.audius.co/v1/tracks/${id}/stream?app_name=sonara`;
+};
+
+/* ---- Row (separate so hooks can be used) ---- */
 function SearchRow({
   item,
   onAdd,
+  onPlay,
 }: {
   item: AudiusTrack;
   onAdd: () => void;
+  onPlay: () => void;
 }) {
   const [liked, setLiked] = useState(false);
   const artwork = normalizeArt(item.artwork);
@@ -66,7 +77,8 @@ function SearchRow({
   };
 
   return (
-    <View
+    <Pressable
+      onPress={onPlay}
       style={{
         flexDirection: "row",
         alignItems: "center",
@@ -91,7 +103,10 @@ function SearchRow({
 
       {/* heart */}
       <Pressable
-        onPress={onToggleHeart}
+        onPress={(e) => {
+          e.stopPropagation();
+          onToggleHeart();
+        }}
         style={{
           padding: 6,
           marginRight: 6,
@@ -105,7 +120,13 @@ function SearchRow({
       </Pressable>
 
       {/* add */}
-      <Pressable onPress={onAdd} style={{ padding: 6 }}>
+      <Pressable
+        onPress={(e) => {
+          e.stopPropagation();
+          onAdd();
+        }}
+        style={{ padding: 6 }}
+      >
         <View
           style={{
             width: 32,
@@ -119,13 +140,15 @@ function SearchRow({
           <Ionicons name="add" size={18} color="#fff" />
         </View>
       </Pressable>
-    </View>
+    </Pressable>
   );
 }
 
+/* ---------- Screen ---------- */
 export default function Search() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const pb = usePlayback() as any;
 
   const [q, setQ] = useState("");
   const [workingQ, setWorkingQ] = useState("");
@@ -234,6 +257,35 @@ export default function Search() {
       setCreating(false);
       Alert.alert("Error", e?.message ?? "Could not create playlist.");
     }
+  };
+
+  /* ---- play helpers for this page ---- */
+  const playNow = async (t: AudiusTrack) => {
+    const playable = {
+      id: t.id,
+      title: t.title,
+      artist: t.user?.name || "Unknown",
+      artwork: normalizeArt(t.artwork),
+      streamUrl: resolveStreamUrl(t.id),
+    };
+
+    if (typeof pb.loadAndPlay === "function") {
+      await pb.loadAndPlay(playable);
+    } else if (typeof pb.playSingle === "function") {
+      await pb.playSingle(playable, true);
+    } else if (typeof pb.playFromList === "function") {
+      await pb.playFromList([playable], 0, true);
+    }
+    // Navigate to the full player
+    router.push({
+      pathname: "/player",
+      params: {
+        id: playable.id,
+        title: encodeURIComponent(playable.title),
+        artist: encodeURIComponent(playable.artist || "Unknown"),
+        artwork: encodeURIComponent(playable.artwork || ""),
+      },
+    });
   };
 
   return (
@@ -345,7 +397,11 @@ export default function Search() {
             </Text>
           }
           renderItem={({ item }) => (
-            <SearchRow item={item} onAdd={() => openPicker(item)} />
+            <SearchRow
+              item={item}
+              onAdd={() => openPicker(item)}
+              onPlay={() => playNow(item)}
+            />
           )}
         />
       ) : (
@@ -359,7 +415,11 @@ export default function Search() {
           ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
           ListHeaderComponent={<SectionHeader title="Top Searched Songs" action="See All" />}
           renderItem={({ item }) => (
-            <SearchRow item={item} onAdd={() => openPicker(item)} />
+            <SearchRow
+              item={item}
+              onAdd={() => openPicker(item)}
+              onPlay={() => playNow(item)}
+            />
           )}
           ListFooterComponent={
             <>
@@ -382,7 +442,8 @@ export default function Search() {
                 {hotTrending.map((t) => (
                   <Pressable
                     key={t.id}
-                    onPress={() => openPicker(t)}
+                    onPress={() => playNow(t)}
+                    onLongPress={() => openPicker(t)}
                     style={{
                       width: 180,
                       borderRadius: 14,
@@ -403,6 +464,9 @@ export default function Search() {
                       </Text>
                       <Text style={{ color: SUBTLE, fontSize: 12 }} numberOfLines={1}>
                         {t.user?.name || "Unknown"}
+                      </Text>
+                      <Text style={{ color: SUBTLE, fontSize: 10, marginTop: 2 }}>
+                        Tap to play • Long-press to add
                       </Text>
                     </View>
                   </Pressable>

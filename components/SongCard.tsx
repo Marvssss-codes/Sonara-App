@@ -5,6 +5,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import SafeImage from "./SafeImage";
 import { toggleFavorite } from "../lib/db.favorites";
+import { usePlayback } from "../contexts/PlaybackContext";
+import { streamUrlFor as _streamUrlFor } from "../lib/audius";
 
 export type SongCardTrack = {
   id: string;
@@ -13,11 +15,19 @@ export type SongCardTrack = {
   artwork?: string | { [k: string]: string } | null;
 };
 
+const resolveStreamUrl = (id: string) => {
+  try {
+    const fn = _streamUrlFor as unknown as (x: string) => string;
+    if (typeof fn === "function") return String(fn(id));
+  } catch {}
+  return `https://discoveryprovider.audius.co/v1/tracks/${id}/stream?app_name=sonara`;
+};
+
 export default function SongCard({
   track,
-  onPress,          // optional custom press handler
-  onAdd,            // optional "Add" action (e.g., add to playlist)
-  showHeart = true, // show/hide heart button
+  onPress,
+  onAdd,
+  showHeart = true,
 }: {
   track: SongCardTrack;
   onPress?: () => void;
@@ -26,15 +36,15 @@ export default function SongCard({
 }) {
   const router = useRouter();
   const [liked, setLiked] = useState(false);
+  const pb = usePlayback();
 
-  // Normalize artwork once
   const artwork = useMemo(() => {
     if (!track?.artwork) return null;
     if (typeof track.artwork === "string") return track.artwork;
     return (
-      (track.artwork["150x150"] as string) ||
-      (track.artwork["480x480"] as string) ||
       (track.artwork["1000x1000"] as string) ||
+      (track.artwork["480x480"] as string) ||
+      (track.artwork["150x150"] as string) ||
       null
     );
   }, [track?.artwork]);
@@ -44,12 +54,32 @@ export default function SongCard({
     [track?.user?.name]
   );
 
-  const handleCardPress = () => {
-    if (onPress) {
-      onPress();
-      return;
+  const startPlayback = async () => {
+    const t = {
+      id: track.id,
+      title: track.title,
+      artist: artistName,
+      artwork: artwork || null,
+      streamUrl: resolveStreamUrl(track.id),
+    };
+
+    // Tolerant across context versions
+    const anyPb: any = pb;
+    if (typeof anyPb.loadAndPlay === "function") return anyPb.loadAndPlay(t);
+    if (typeof anyPb.playSingle === "function") return anyPb.playSingle(t, true);
+    if (typeof anyPb.playFromList === "function") return anyPb.playFromList([t], 0, true);
+    if (typeof anyPb.setTrack === "function" || typeof anyPb.setCurrent === "function") {
+      const setFn = (anyPb.setTrack || anyPb.setCurrent).bind(anyPb);
+      await setFn(t);
+      if (typeof anyPb.play === "function") return anyPb.play();
     }
-    // Default: open the player and pass minimal safe params
+  };
+
+  const handleCardPress = async () => {
+    if (onPress) return onPress();
+    try {
+      await startPlayback();
+    } catch {}
     router.push({
       pathname: "/player",
       params: {
@@ -61,7 +91,8 @@ export default function SongCard({
     });
   };
 
-  const onToggleHeart = async () => {
+  const onToggleHeart = async (e?: any) => {
+    e?.stopPropagation?.();
     try {
       const next = await toggleFavorite({
         id: track.id,
@@ -70,10 +101,7 @@ export default function SongCard({
         artwork,
       });
       setLiked(next);
-    } catch (e) {
-      // Optionally show a toast here
-      console.log("favorite toggle failed", e);
-    }
+    } catch {}
   };
 
   return (
@@ -90,14 +118,9 @@ export default function SongCard({
     >
       <View style={{ position: "relative" }}>
         <SafeImage uri={artwork} style={{ width: "100%", height: 120 }} contentFit="cover" />
-
         {showHeart && (
           <Pressable
-            // stop the press from bubbling to the card (so it won't open player)
-            onPress={(e: any) => {
-              e?.stopPropagation?.();
-              onToggleHeart();
-            }}
+            onPress={onToggleHeart}
             style={{
               position: "absolute",
               right: 8,
@@ -123,7 +146,7 @@ export default function SongCard({
         {onAdd ? (
           <Pressable
             onPress={(e: any) => {
-              e?.stopPropagation?.(); // don't open player when tapping "Add"
+              e?.stopPropagation?.();
               onAdd();
             }}
             style={{

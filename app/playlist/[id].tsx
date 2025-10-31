@@ -18,6 +18,8 @@ import {
   updatePlaylistCover,
 } from "../../lib/db.playlists";
 import SafeImage from "../../components/SafeImage";
+import { usePlayback } from "../../contexts/PlaybackContext";
+import { streamUrlFor as _streamUrlFor } from "../../lib/audius";
 
 type Item = {
   id: string;
@@ -34,10 +36,20 @@ const STROKE = "rgba(255,255,255,0.10)";
 const SUBTLE = "#B7BCD3";
 const ACCENT = "#8E59FF";
 
+// Safe resolver
+const resolveStreamUrl = (id: string) => {
+  try {
+    const fn = _streamUrlFor as unknown as (x: string) => string;
+    if (typeof fn === "function") return String(fn(id));
+  } catch {}
+  return `https://discoveryprovider.audius.co/v1/tracks/${id}/stream?app_name=sonara`;
+};
+
 export default function PlaylistDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const pb = usePlayback();
 
   const [name, setName] = useState("Playlist");
   const [cover, setCover] = useState<string | null>(null);
@@ -62,9 +74,20 @@ export default function PlaylistDetail() {
     }
   };
 
-  useEffect(() => {
-    if (id) load();
-  }, [id]);
+  useEffect(() => { if (id) load(); }, [id]);
+
+  // Playback queue
+  const playable = useMemo(
+    () =>
+      items.map((it) => ({
+        id: it.track_id,
+        title: it.title,
+        artist: it.artist || "Unknown",
+        artwork: it.artwork_url || null,
+        streamUrl: resolveStreamUrl(it.track_id),
+      })),
+    [items]
+  );
 
   const askDelete = () => {
     Alert.alert("Delete playlist?", "This will remove all items.", [
@@ -80,14 +103,13 @@ export default function PlaylistDetail() {
     setRenameOpen(false);
   };
 
-  /** Resolve iOS ph:// assets to a real file:// path (works cross-platform) */
   async function resolveUploadFilePathFromAsset(assetId?: string, fallbackUri?: string) {
     try {
       if (assetId) {
         const perm = await MediaLibrary.requestPermissionsAsync();
         if (!perm.granted) return fallbackUri ?? null;
         const info = await MediaLibrary.getAssetInfoAsync(assetId);
-        if (info.localUri) return info.localUri; // already a file://
+        if (info.localUri) return info.localUri;
         if (info.uri) {
           const dest = `${FS.cacheDirectory}pl-cover-${assetId}.${(info.filename || "jpg").split(".").pop()}`;
           await FS.copyAsync({ from: info.uri, to: dest });
@@ -103,15 +125,8 @@ export default function PlaylistDetail() {
     try {
       const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!perm.granted) return Alert.alert("Permission needed", "Allow photo access to change cover.");
-
-      const res = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.9,
-      });
+      const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, aspect: [1, 1], quality: 0.9 });
       if (res.canceled) return;
-
       const asset = res.assets[0];
       const uploadUri = await resolveUploadFilePathFromAsset(asset?.assetId, asset?.uri);
       if (!uploadUri) throw new Error("Invalid image URI");
@@ -132,26 +147,15 @@ export default function PlaylistDetail() {
     Alert.alert("Done", "Cover set from a track artwork.");
   };
 
-  // Stable upload: base64 via legacy FS → ArrayBuffer
   const uploadCover = async (uri: string) => {
     const ext = (uri.split(".").pop() || "jpg").toLowerCase();
-    const mime =
-      ext === "png" ? "image/png" :
-      ext === "webp" ? "image/webp" :
-      ext === "heic" ? "image/heic" :
-      ext === "heif" ? "image/heif" :
-      "image/jpeg";
-
+    const mime = ext === "png" ? "image/png" : ext === "webp" ? "image/webp" : ext === "heic" ? "image/heic" : ext === "heif" ? "image/heif" : "image/jpeg";
     const normalized = uri.startsWith("file://") ? uri : `file://${uri}`;
     const base64 = await FS.readAsStringAsync(normalized, { /* @ts-ignore */ encoding: FS.EncodingType.Base64 });
     const arrayBuffer = decodeBase64(base64);
-
     const filename = `covers/${id}.${ext}`;
-    const { error: upErr } = await supa.storage
-      .from("playlist-covers")
-      .upload(filename, arrayBuffer, { upsert: true, contentType: mime });
+    const { error: upErr } = await supa.storage.from("playlist-covers").upload(filename, arrayBuffer, { upsert: true, contentType: mime });
     if (upErr) throw upErr;
-
     const { data: publicUrl } = supa.storage.from("playlist-covers").getPublicUrl(filename);
     await updatePlaylistCover(String(id), publicUrl.publicUrl);
     setCover(publicUrl.publicUrl);
@@ -177,18 +181,9 @@ export default function PlaylistDetail() {
 
       {/* Cover + actions */}
       <View style={{ paddingHorizontal: 16, marginBottom: 10 }}>
-        <View style={{
-          height: 180, borderRadius: 18, overflow: "hidden",
-          backgroundColor: CARD, borderWidth: 1, borderColor: STROKE,
-          alignItems: "center", justifyContent: "center"
-        }}>
-          {cover ? (
-            <SafeImage uri={cover} style={{ width: "100%", height: "100%" }} contentFit="cover" />
-          ) : (
-            <Text style={{ color: SUBTLE }}>No cover yet</Text>
-          )}
+        <View style={{ height: 180, borderRadius: 18, overflow: "hidden", backgroundColor: CARD, borderWidth: 1, borderColor: STROKE, alignItems: "center", justifyContent: "center" }}>
+          {cover ? <SafeImage uri={cover} style={{ width: "100%", height: "100%" }} contentFit="cover" /> : <Text style={{ color: SUBTLE }}>No cover yet</Text>}
         </View>
-
         <View style={{ flexDirection: "row", gap: 10, marginTop: 12 }}>
           <ActionBtn icon="image-outline" label={changingCover ? "Changing..." : "Change cover"} onPress={pickFromDevice} disabled={changingCover} />
           <ActionBtn icon="color-palette-outline" label="Use track artwork" onPress={pickFromTrackArtwork} />
@@ -208,12 +203,15 @@ export default function PlaylistDetail() {
           data={items}
           keyExtractor={(it) => it.id}
           contentContainerStyle={{ padding: 16, gap: 10 }}
-          renderItem={({ item }) => (
-            <View style={{
-              flexDirection: "row", alignItems: "center",
-              borderRadius: 14, borderWidth: 1, borderColor: "rgba(255,255,255,0.1)",
-              backgroundColor: "rgba(255,255,255,0.06)", overflow: "hidden"
-            }}>
+          renderItem={({ item, index }) => (
+            <Pressable
+              onPress={() => pb.playFromList(playable, index, true)}
+              style={{
+                flexDirection: "row", alignItems: "center",
+                borderRadius: 14, borderWidth: 1, borderColor: "rgba(255,255,255,0.1)",
+                backgroundColor: "rgba(255,255,255,0.06)", overflow: "hidden"
+              }}
+            >
               <SafeImage uri={item.artwork_url ?? null} style={{ width: 64, height: 64 }} contentFit="cover" />
               <View style={{ flex: 1, paddingHorizontal: 12 }}>
                 <Text style={{ color: "#fff", fontWeight: "900" }} numberOfLines={1}>{item.title}</Text>
@@ -222,7 +220,7 @@ export default function PlaylistDetail() {
               <Pressable onPress={async () => { await removeItem(item.id); await load(); }} style={{ padding: 12 }}>
                 <Ionicons name="close" size={18} color="#FF7B93" />
               </Pressable>
-            </View>
+            </Pressable>
           )}
         />
       )}
@@ -237,10 +235,7 @@ export default function PlaylistDetail() {
             onChangeText={setNameDraft}
             placeholder="Name"
             placeholderTextColor="#778"
-            style={{
-              backgroundColor: "rgba(255,255,255,0.06)", color: "#fff", borderRadius: 12,
-              paddingHorizontal: 12, paddingVertical: 12, borderWidth: 1, borderColor: "rgba(255,255,255,0.12)"
-            }}
+            style={{ backgroundColor: "rgba(255,255,255,0.06)", color: "#fff", borderRadius: 12, paddingHorizontal: 12, paddingVertical: 12, borderWidth: 1, borderColor: "rgba(255,255,255,0.12)" }}
           />
           <View style={{ flexDirection: "row", gap: 10, marginTop: 12 }}>
             <DialogBtn title="Cancel" onPress={() => setRenameOpen(false)} />
