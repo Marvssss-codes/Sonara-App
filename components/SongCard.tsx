@@ -2,9 +2,9 @@
 import React, { useMemo, useState } from "react";
 import { View, Text, Pressable } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
 import SafeImage from "./SafeImage";
 import { toggleFavorite } from "../lib/db.favorites";
+import { usePlayer } from "./PlayerContext";
 
 export type SongCardTrack = {
   id: string;
@@ -24,7 +24,7 @@ export default function SongCard({
   onAdd?: () => void;
   showHeart?: boolean;
 }) {
-  const router = useRouter();
+  const { setTrack, setPlayerExpanded } = usePlayer();
   const [liked, setLiked] = useState(false);
 
   // Normalize artwork once
@@ -49,16 +49,10 @@ export default function SongCard({
       onPress();
       return;
     }
-    // Default: open the player and pass minimal safe params
-    router.push({
-      pathname: "/player",
-      params: {
-        id: track.id,
-        title: encodeURIComponent(track.title),
-        artist: encodeURIComponent(artistName),
-        artwork: encodeURIComponent(artwork || ""),
-      },
-    });
+
+    // Set the track in context and open the full player modal
+    setTrack(track);
+    setPlayerExpanded(true);
   };
 
   const onToggleHeart = async () => {
@@ -71,7 +65,6 @@ export default function SongCard({
       });
       setLiked(next);
     } catch (e) {
-      // Optionally show a toast here
       console.log("favorite toggle failed", e);
     }
   };
@@ -93,7 +86,6 @@ export default function SongCard({
 
         {showHeart && (
           <Pressable
-            // stop the press from bubbling to the card (so it won't open player)
             onPress={(e: any) => {
               e?.stopPropagation?.();
               onToggleHeart();
@@ -123,7 +115,7 @@ export default function SongCard({
         {onAdd ? (
           <Pressable
             onPress={(e: any) => {
-              e?.stopPropagation?.(); // don't open player when tapping "Add"
+              e?.stopPropagation?.();
               onAdd();
             }}
             style={{

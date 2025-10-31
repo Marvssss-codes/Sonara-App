@@ -40,13 +40,15 @@ const normalizeArt = (art: AudiusTrack["artwork"]) => {
   return art["150x150"] || art["480x480"] || art["1000x1000"] || null;
 };
 
-// A tiny row component so we can safely use hooks (no hooks in plain functions)
+// ---- Search row ----
 function SearchRow({
   item,
   onAdd,
+  onPress, // <-- added to open player
 }: {
   item: AudiusTrack;
   onAdd: () => void;
+  onPress: () => void;
 }) {
   const [liked, setLiked] = useState(false);
   const artwork = normalizeArt(item.artwork);
@@ -66,7 +68,8 @@ function SearchRow({
   };
 
   return (
-    <View
+    <Pressable
+      onPress={onPress}
       style={{
         flexDirection: "row",
         alignItems: "center",
@@ -91,7 +94,10 @@ function SearchRow({
 
       {/* heart */}
       <Pressable
-        onPress={onToggleHeart}
+        onPress={(e) => {
+          e.stopPropagation();
+          onToggleHeart();
+        }}
         style={{
           padding: 6,
           marginRight: 6,
@@ -105,7 +111,13 @@ function SearchRow({
       </Pressable>
 
       {/* add */}
-      <Pressable onPress={onAdd} style={{ padding: 6 }}>
+      <Pressable
+        onPress={(e) => {
+          e.stopPropagation();
+          onAdd();
+        }}
+        style={{ padding: 6 }}
+      >
         <View
           style={{
             width: 32,
@@ -119,7 +131,7 @@ function SearchRow({
           <Ionicons name="add" size={18} color="#fff" />
         </View>
       </Pressable>
-    </View>
+    </Pressable>
   );
 }
 
@@ -177,7 +189,7 @@ export default function Search() {
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current as unknown as number);
-    // @ts-ignore – RN timers fine with number
+    // @ts-ignore
     debounceRef.current = setTimeout(async () => {
       const term = q.trim();
       setWorkingQ(term);
@@ -234,6 +246,20 @@ export default function Search() {
       setCreating(false);
       Alert.alert("Error", e?.message ?? "Could not create playlist.");
     }
+  };
+
+  // ----- Navigate to player -----
+  const playTrack = (track: AudiusTrack) => {
+    const artworkUrl = normalizeArt(track.artwork) || "";
+    router.push({
+      pathname: "/player",
+      params: {
+        id: track.id,
+        title: encodeURIComponent(track.title),
+        artist: encodeURIComponent(track.user?.name || "Unknown"),
+        artwork: encodeURIComponent(artworkUrl),
+      },
+    });
   };
 
   return (
@@ -345,7 +371,7 @@ export default function Search() {
             </Text>
           }
           renderItem={({ item }) => (
-            <SearchRow item={item} onAdd={() => openPicker(item)} />
+            <SearchRow item={item} onAdd={() => openPicker(item)} onPress={() => playTrack(item)} />
           )}
         />
       ) : (
@@ -359,7 +385,7 @@ export default function Search() {
           ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
           ListHeaderComponent={<SectionHeader title="Top Searched Songs" action="See All" />}
           renderItem={({ item }) => (
-            <SearchRow item={item} onAdd={() => openPicker(item)} />
+            <SearchRow item={item} onAdd={() => openPicker(item)} onPress={() => playTrack(item)} />
           )}
           ListFooterComponent={
             <>
@@ -382,7 +408,7 @@ export default function Search() {
                 {hotTrending.map((t) => (
                   <Pressable
                     key={t.id}
-                    onPress={() => openPicker(t)}
+                    onPress={() => playTrack(t)}
                     style={{
                       width: 180,
                       borderRadius: 14,
