@@ -39,6 +39,9 @@ export default function FullPlayer() {
   return (
     <Animated.View style={[styles.overlay, { transform: [{ translateY }] }]} {...panResponder.panHandlers}>
       <View style={styles.card}>
+        <Pressable onPress={() => setPlayerExpanded(false)} style={styles.minimizeBtn} hitSlop={10}>
+          <Ionicons name="chevron-down" color="#fff" size={24} />
+        </Pressable>
         {track.artworkUri ? <Image source={{ uri: track.artworkUri }} style={styles.artwork} /> : <View style={[styles.artwork, styles.placeholder]} />}
         <Text style={styles.title} numberOfLines={1}>{track.title}</Text>
         <Text style={styles.artist} numberOfLines={1}>{track.artist || "Unknown Artist"}</Text>
@@ -94,6 +97,7 @@ const styles = StyleSheet.create({
     padding: 16,
     alignItems: "center",
   },
+  minimizeBtn: { position: "absolute", right: 8, top: 8, padding: 6, zIndex: 1 },
   artwork: { width: 260, height: 260, borderRadius: 12, marginBottom: 14 },
   placeholder: { backgroundColor: "#2A2A2A" },
   title: { color: "#fff", fontSize: 18, fontWeight: "700" },

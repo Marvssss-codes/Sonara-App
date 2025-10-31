@@ -5,6 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import SafeImage from "./SafeImage";
 import { toggleFavorite } from "../lib/db.favorites";
 import { usePlayer } from "./PlayerContext";
+import { getStreamUrl } from "../lib/audius";
 
 export type SongCardTrack = {
   id: string;
@@ -24,7 +25,7 @@ export default function SongCard({
   onAdd?: () => void;
   showHeart?: boolean;
 }) {
-  const { setTrack, setPlayerExpanded } = usePlayer();
+  const { playTrack, setPlayerExpanded } = usePlayer();
   const [liked, setLiked] = useState(false);
 
   // Normalize artwork once
@@ -44,14 +45,22 @@ export default function SongCard({
     [track?.user?.name]
   );
 
-  const handleCardPress = () => {
+  const handleCardPress = async () => {
     if (onPress) {
       onPress();
       return;
     }
 
-    // Set the track in context and open the full player modal
-    setTrack(track);
+    // Map Audius track -> internal Player Track and start playback
+    const mapped = {
+      id: track.id,
+      title: track.title,
+      artist: artistName,
+      artworkUri: artwork || undefined,
+      source: { uri: getStreamUrl(track.id) },
+    } as const;
+
+    await playTrack(mapped as any);
     setPlayerExpanded(true);
   };
 
