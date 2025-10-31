@@ -23,6 +23,7 @@ import PlaylistPill from "../../components/PlaylistPill";
 import TopMenu from "../../components/TopMenu";
 import { LinearGradient } from "expo-linear-gradient";
 import MaskedView from "@react-native-masked-view/masked-view";
+import SafeImage from "../../components/SafeImage";
 
 const CATS = [
   "All",
@@ -41,11 +42,14 @@ export default function Home() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
+
   const [displayName, setDisplayName] = useState<string>("");
   const [generation, setGeneration] = useState<Generation | null>(null);
-  const [userId, setUserId] = useState<string | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [loadingPlaylists, setLoadingPlaylists] = useState(true);
+
   const [activeCat, setActiveCat] = useState("All");
   const [popular, setPopular] = useState<AudiusTrack[]>([]);
   const [catTracks, setCatTracks] = useState<AudiusTrack[]>([]);
@@ -62,13 +66,12 @@ export default function Home() {
     }).start();
   }, []);
 
-  // Load profile & playlists
+  // Load profile, avatar & playlists
   useEffect(() => {
     (async () => {
       try {
         const { data: sessionData } = await supa.auth.getSession();
         const uid = sessionData.session?.user?.id || null;
-        setUserId(uid);
 
         const { data: userData } = await supa.auth.getUser();
         const authUser = userData.user;
@@ -76,7 +79,7 @@ export default function Home() {
         if (uid) {
           const { data: prof } = await supa
             .from("profiles")
-            .select("display_name,generation")
+            .select("display_name,generation,avatar_url")
             .eq("id", uid)
             .single();
 
@@ -86,11 +89,25 @@ export default function Home() {
             (authUser?.email ? authUser.email.split("@")[0] : "") ||
             "";
 
-          setDisplayName(
+          const nameFinal =
             (prof?.display_name && String(prof.display_name).trim()) ||
-              fallbackName
-          );
+            fallbackName;
+
+          setDisplayName(nameFinal);
           if (prof?.generation) setGeneration(prof.generation as Generation);
+
+          // avatar priority: profiles.avatar_url -> auth user metadata picture/photo_url
+          const metaPic =
+            (authUser?.user_metadata?.picture as string) ||
+            (authUser?.user_metadata?.avatar_url as string) ||
+            (authUser?.user_metadata?.photo_url as string) ||
+            null;
+
+          setAvatarUrl(
+            (prof?.avatar_url && String(prof.avatar_url)) ||
+              (metaPic && String(metaPic)) ||
+              null
+          );
 
           const { data: pls } = await supa
             .from("playlists")
@@ -190,7 +207,7 @@ export default function Home() {
                     color: "white",
                   }}
                 >
-                  {(displayName && displayName.trim()) ? displayName : "there"} ✨
+                  {displayName && displayName.trim() ? displayName : "there"} ✨
                 </Text>
               }
             >
@@ -206,7 +223,7 @@ export default function Home() {
                     opacity: 0, // mask reveals gradient
                   }}
                 >
-                  {(displayName && displayName.trim()) ? displayName : "there"} ✨
+                  {displayName && displayName.trim() ? displayName : "there"} ✨
                 </Text>
               </LinearGradient>
             </MaskedView>
@@ -223,9 +240,19 @@ export default function Home() {
               justifyContent: "center",
               borderWidth: 1,
               borderColor: "rgba(255,255,255,0.15)",
+              overflow: "hidden",
             }}
           >
-            <Text style={{ color: "#fff", fontSize: 18 }}>👤</Text>
+            {avatarUrl ? (
+              <SafeImage
+                uri={avatarUrl}
+                style={{ width: 42, height: 42, borderRadius: 999 }}
+                contentFit="cover"
+                onError={() => setAvatarUrl(null)}
+              />
+            ) : (
+              <Text style={{ color: "#fff", fontSize: 18 }}>👤</Text>
+            )}
           </Pressable>
         </Animated.View>
 
@@ -268,7 +295,9 @@ export default function Home() {
                 marginHorizontal: 20,
               }}
             >
-              <Text style={{ color: "#fff", fontWeight: "800" }}>Create your first playlist</Text>
+              <Text style={{ color: "#fff", fontWeight: "800" }}>
+                Create your first playlist
+              </Text>
               <Text style={{ color: "#B7BCD3", fontSize: 12, marginTop: 2 }}>
                 Tap to open Library
               </Text>
@@ -300,7 +329,9 @@ export default function Home() {
             keyExtractor={(t) => t.id}
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={{ paddingHorizontal: 20, gap: 14 }}
-            renderItem={({ item }) => <SongCard track={item} />}
+            renderItem={({ item, index }) => (
+              <SongCard track={item} list={popular} index={index} />
+            )}
           />
         </Section>
 
@@ -312,7 +343,9 @@ export default function Home() {
             keyExtractor={(t) => t.id + "-gen"}
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={{ paddingHorizontal: 20, gap: 14 }}
-            renderItem={({ item }) => <SongCard track={item} />}
+            renderItem={({ item, index }) => (
+              <SongCard track={item} list={genTracks} index={index} />
+            )}
           />
         </Section>
 
@@ -324,7 +357,9 @@ export default function Home() {
             keyExtractor={(t) => t.id + "-cat"}
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={{ paddingHorizontal: 20, gap: 14 }}
-            renderItem={({ item }) => <SongCard track={item} />}
+            renderItem={({ item, index }) => (
+              <SongCard track={item} list={catTracks} index={index} />
+            )}
           />
         </Section>
       </ScrollView>

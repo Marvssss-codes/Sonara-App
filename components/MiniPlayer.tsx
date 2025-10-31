@@ -14,6 +14,9 @@ export default function MiniPlayer() {
 
   if (!pb.current) return null;
 
+  const canPrev = pb.queue.length > 1 || pb.repeatMode === "all";
+  const canNext = pb.queue.length > 1 || pb.repeatMode === "all";
+
   return (
     <Pressable
       onPress={() => router.push("/player")}
@@ -52,6 +55,18 @@ export default function MiniPlayer() {
             </Text>
           </View>
 
+          {/* Prev */}
+          <Pressable
+            onPress={(e) => {
+              e.stopPropagation();
+              if (canPrev) pb.prev();
+            }}
+            style={{ padding: 8, opacity: canPrev ? 1 : 0.5 }}
+          >
+            <Ionicons name="play-skip-back" size={20} color="#fff" />
+          </Pressable>
+
+          {/* Toggle */}
           <Pressable
             onPress={(e) => {
               e.stopPropagation();
@@ -62,12 +77,13 @@ export default function MiniPlayer() {
             <Ionicons name={pb.isPlaying ? "pause" : "play"} size={20} color="#fff" />
           </Pressable>
 
+          {/* Next */}
           <Pressable
             onPress={(e) => {
               e.stopPropagation();
-              pb.next();
+              if (canNext) pb.next();
             }}
-            style={{ padding: 8 }}
+            style={{ padding: 8, opacity: canNext ? 1 : 0.5 }}
           >
             <Ionicons name="play-skip-forward" size={20} color="#fff" />
           </Pressable>

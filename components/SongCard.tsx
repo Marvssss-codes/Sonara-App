@@ -15,7 +15,12 @@ export type SongCardTrack = {
   artwork?: string | { [k: string]: string } | null;
 };
 
-const resolveStreamUrl = (id: string) => {
+const resolveArt = (art?: string | Record<string, string> | null) => {
+  if (!art) return null;
+  if (typeof art === "string") return art;
+  return art["1000x1000"] || art["480x480"] || art["150x150"] || null;
+};
+const streamFor = (id: string) => {
   try {
     const fn = _streamUrlFor as unknown as (x: string) => string;
     if (typeof fn === "function") return String(fn(id));
@@ -28,51 +33,52 @@ export default function SongCard({
   onPress,
   onAdd,
   showHeart = true,
+  // NEW: when provided, we’ll start playback with the whole list
+  list,
+  index,
 }: {
   track: SongCardTrack;
   onPress?: () => void;
   onAdd?: () => void;
   showHeart?: boolean;
+  list?: SongCardTrack[];
+  index?: number;
 }) {
   const router = useRouter();
   const [liked, setLiked] = useState(false);
   const pb = usePlayback();
 
-  const artwork = useMemo(() => {
-    if (!track?.artwork) return null;
-    if (typeof track.artwork === "string") return track.artwork;
-    return (
-      (track.artwork["1000x1000"] as string) ||
-      (track.artwork["480x480"] as string) ||
-      (track.artwork["150x150"] as string) ||
-      null
-    );
-  }, [track?.artwork]);
-
+  const artwork = useMemo(() => resolveArt(track.artwork), [track?.artwork]);
   const artistName = useMemo(
     () => (track?.user?.name ? String(track.user.name) : "Unknown"),
     [track?.user?.name]
   );
 
   const startPlayback = async () => {
-    const t = {
-      id: track.id,
-      title: track.title,
-      artist: artistName,
-      artwork: artwork || null,
-      streamUrl: resolveStreamUrl(track.id),
-    };
-
-    // Tolerant across context versions
-    const anyPb: any = pb;
-    if (typeof anyPb.loadAndPlay === "function") return anyPb.loadAndPlay(t);
-    if (typeof anyPb.playSingle === "function") return anyPb.playSingle(t, true);
-    if (typeof anyPb.playFromList === "function") return anyPb.playFromList([t], 0, true);
-    if (typeof anyPb.setTrack === "function" || typeof anyPb.setCurrent === "function") {
-      const setFn = (anyPb.setTrack || anyPb.setCurrent).bind(anyPb);
-      await setFn(t);
-      if (typeof anyPb.play === "function") return anyPb.play();
+    // If a list + index is supplied (e.g., Home grid), play with a queue
+    if (list && typeof index === "number") {
+      const mapped = list.map((t) => ({
+        id: t.id,
+        title: t.title,
+        artist: t.user?.name || "Unknown",
+        artwork: resolveArt(t.artwork),
+        streamUrl: streamFor(t.id),
+      }));
+      await pb.playFromList(mapped, Math.max(0, Math.min(mapped.length - 1, index)), true);
+      return;
     }
+
+    // Fallback: single
+    await pb.playSingle(
+      {
+        id: track.id,
+        title: track.title,
+        artist: artistName,
+        artwork: artwork || null,
+        streamUrl: streamFor(track.id),
+      },
+      true
+    );
   };
 
   const handleCardPress = async () => {

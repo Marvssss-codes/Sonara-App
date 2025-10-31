@@ -18,42 +18,45 @@ export default function Signup() {
   const [birthYear, setBirthYear] = useState("");
   const [loading, setLoading] = useState(false);
 
-  async function handleSignup() {
-  // …your validation untouched…
-
-  try {
-    setLoading(true);
-
-    // 1) Create account
-    const { data, error } = await supa.auth.signUp({
-      email,
-      password: pwd,
-      options: { data: { name, birth_year: Number(birthYear) } },
-    });
-    if (error || !data.user) {
-      setLoading(false);
-      return Alert.alert("Sign up failed", error?.message ?? "Unknown error");
-    }
-
-    // 2) Immediately sign in (ensures we have a session even if email confirmation is on)
-    const { error: loginErr } = await supa.auth.signInWithPassword({
-      email,
-      password: pwd,
-    });
-    if (loginErr) {
-      setLoading(false);
-      return Alert.alert("Sign in required", loginErr.message);
-    }
-
-    // 3) Go to profile setup
-    setLoading(false);
-    router.replace("/profile-setup");
-  } catch (e: any) {
-    setLoading(false);
-    Alert.alert("Error", e?.message ?? "Something went wrong");
+  function comingSoon(what: string) {
+    Alert.alert(
+      `${what} — coming soon`,
+      "We’re putting the final touches on this. For now, please sign up with your email."
+    );
   }
-}
 
+  async function handleSignup() {
+    // …your validation untouched…
+
+    try {
+      setLoading(true);
+
+      const { data, error } = await supa.auth.signUp({
+        email,
+        password: pwd,
+        options: { data: { name, birth_year: Number(birthYear) } },
+      });
+      if (error || !data.user) {
+        setLoading(false);
+        return Alert.alert("Sign up failed", error?.message ?? "Unknown error");
+      }
+
+      const { error: loginErr } = await supa.auth.signInWithPassword({
+        email,
+        password: pwd,
+      });
+      if (loginErr) {
+        setLoading(false);
+        return Alert.alert("Sign in required", loginErr.message);
+      }
+
+      setLoading(false);
+      router.replace("/profile-setup");
+    } catch (e: any) {
+      setLoading(false);
+      Alert.alert("Error", e?.message ?? "Something went wrong");
+    }
+  }
 
   return (
     <View style={{ flex: 1, backgroundColor: "#0B0E17" }}>
@@ -71,54 +74,20 @@ export default function Signup() {
           }}
         >
           <View style={{ gap: 14 }}>
-            <GlassInput
-              icon="person"
-              placeholder="Name"
-              value={name}
-              onChangeText={setName}
-            />
-            <GlassInput
-              icon="calendar"
-              placeholder="Birth year (e.g., 2002)"
-              keyboardType="numeric"
-              value={birthYear}
-              onChangeText={setBirthYear}
-            />
-            <GlassInput
-              icon="mail"
-              placeholder="Email"
-              keyboardType="email-address"
-              autoCapitalize="none"
-              value={email}
-              onChangeText={setEmail}
-            />
-            <GlassInput
-              icon="lock-closed"
-              placeholder="Password"
-              secure
-              value={pwd}
-              onChangeText={setPwd}
-            />
-            <GlassInput
-              icon="lock-closed"
-              placeholder="Confirm password"
-              secure
-              value={confirmPwd}
-              onChangeText={setConfirmPwd}
-            />
+            <GlassInput icon="person" placeholder="Name" value={name} onChangeText={setName} />
+            <GlassInput icon="calendar" placeholder="Birth year (e.g., 2002)" keyboardType="numeric" value={birthYear} onChangeText={setBirthYear} />
+            <GlassInput icon="mail" placeholder="Email" keyboardType="email-address" autoCapitalize="none" value={email} onChangeText={setEmail} />
+            <GlassInput icon="lock-closed" placeholder="Password" secure value={pwd} onChangeText={setPwd} />
+            <GlassInput icon="lock-closed" placeholder="Confirm password" secure value={confirmPwd} onChangeText={setConfirmPwd} />
           </View>
 
-          <GradientButton
-            title={loading ? "Creating..." : "Sign up"}
-            onPress={handleSignup}
-            style={{ marginTop: 16 }}
-          />
+          <GradientButton title={loading ? "Creating..." : "Sign up"} onPress={handleSignup} style={{ marginTop: 16 }} />
 
           <Divider text="OR" />
 
           <View style={{ gap: 10 }}>
-            <SocialButton kind="google" onPress={() => { /* TODO */ }} />
-            <SocialButton kind="apple" onPress={() => { /* TODO */ }} />
+            <SocialButton kind="google" onPress={() => comingSoon("Sign up with Google")} />
+            <SocialButton kind="apple" onPress={() => comingSoon("Sign up with Apple")} />
           </View>
 
           <View style={{ alignItems: "center", marginTop: 18 }}>

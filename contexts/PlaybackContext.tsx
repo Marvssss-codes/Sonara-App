@@ -24,6 +24,8 @@ export type NowPlaying = {
   streamUrl: string; // resolved URL that expo-av can play
 };
 
+export type RepeatMode = "off" | "one" | "all";
+
 type Ctx = {
   // state
   current: NowPlaying | null;
@@ -32,6 +34,7 @@ type Ctx = {
   isPlaying: boolean;
   durationMs: number;
   positionMs: number;
+  repeatMode: RepeatMode;
 
   // controls
   playSingle: (t: NowPlaying, autoplay?: boolean) => Promise<void>;
@@ -42,6 +45,7 @@ type Ctx = {
   next: () => Promise<void>;
   prev: () => Promise<void>;
   seekTo: (ms: number) => Promise<void>;
+  setRepeatMode: (m: RepeatMode) => void;
 };
 
 const PlaybackContext = createContext<Ctx | null>(null);
@@ -56,6 +60,7 @@ export function PlaybackProvider({ children }: { children: React.ReactNode }) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [durationMs, setDurationMs] = useState(0);
   const [positionMs, setPositionMs] = useState(0);
+  const [repeatMode, setRepeatMode] = useState<RepeatMode>("off");
 
   // Make sure we only ever have one audio mode & one sound
   const ensureAudioMode = useCallback(async () => {
@@ -84,6 +89,10 @@ export function PlaybackProvider({ children }: { children: React.ReactNode }) {
     setPositionMs(0);
   }, []);
 
+  // Forward declare to use inside onStatus
+  const nextRef = useRef<() => Promise<void>>(() => Promise.resolve());
+  const replayCurrentRef = useRef<() => Promise<void>>(() => Promise.resolve());
+
   const onStatus = useCallback((status: AVPlaybackStatus) => {
     if (!status || !("isLoaded" in status)) return;
     if (!status.isLoaded) return;
@@ -94,10 +103,23 @@ export function PlaybackProvider({ children }: { children: React.ReactNode }) {
     setPositionMs(s.positionMillis ?? 0);
 
     if (s.didJustFinish && !s.isLooping) {
-      // Auto-advance
-      void next();
+      // Handle repeat logic
+      if (repeatMode === "one") {
+        // Restart the same track
+        void replayCurrentRef.current();
+        return;
+      }
+      if (repeatMode === "all") {
+        void nextRef.current();
+        return;
+      }
+      // repeatMode === "off"
+      // Only advance if we haven't reached the end; otherwise stop.
+      const atEnd = index >= queue.length - 1;
+      if (!atEnd) void nextRef.current();
+      // if at end, do nothing; stays stopped at end
     }
-  }, []); // next is hoisted below but referenced via closure; fine in RN
+  }, [repeatMode, index, queue.length]);
 
   const load = useCallback(
     async (track: NowPlaying, autoplay = true) => {
@@ -115,6 +137,14 @@ export function PlaybackProvider({ children }: { children: React.ReactNode }) {
     },
     [ensureAudioMode, unload, onStatus]
   );
+
+  // helper to replay current (for repeat "one")
+  const replayCurrent = useCallback(async () => {
+    const t = current;
+    if (!t) return;
+    await load(t, true);
+  }, [current, load]);
+  replayCurrentRef.current = replayCurrent;
 
   const playSingle = useCallback(
     async (t: NowPlaying, autoplay = true) => {
@@ -159,18 +189,41 @@ export function PlaybackProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const next = useCallback(async () => {
-    if (queue.length < 2) return;
-    const ni = (index + 1) % queue.length;
+    if (queue.length === 0) return;
+    const atEnd = index >= queue.length - 1;
+    if (atEnd) {
+      if (repeatMode === "all") {
+        setIndex(0);
+        await load(queue[0], true);
+      } else {
+        // repeat off / one: do nothing at hard end
+      }
+      return;
+    }
+    const ni = index + 1;
     setIndex(ni);
     await load(queue[ni], true);
-  }, [index, queue, load]);
+  }, [index, queue, load, repeatMode]);
+  nextRef.current = next;
 
   const prev = useCallback(async () => {
-    if (queue.length < 2) return;
-    const pi = (index - 1 + queue.length) % queue.length;
+    if (queue.length === 0) return;
+    const atStart = index <= 0;
+    if (atStart) {
+      if (repeatMode === "all" && queue.length > 1) {
+        const last = queue.length - 1;
+        setIndex(last);
+        await load(queue[last], true);
+      } else {
+        // at hard start: restart current to beginning
+        await seekTo(0);
+      }
+      return;
+    }
+    const pi = index - 1;
     setIndex(pi);
     await load(queue[pi], true);
-  }, [index, queue, load]);
+  }, [index, queue, load, repeatMode, seekTo]);
 
   // Cleanup on unmount (development fast refresh safe)
   useEffect(() => {
@@ -192,6 +245,7 @@ export function PlaybackProvider({ children }: { children: React.ReactNode }) {
       isPlaying,
       durationMs,
       positionMs,
+      repeatMode,
       playSingle,
       playFromList,
       toggle,
@@ -200,6 +254,7 @@ export function PlaybackProvider({ children }: { children: React.ReactNode }) {
       next,
       prev,
       seekTo,
+      setRepeatMode,
     }),
     [
       current,
@@ -208,6 +263,7 @@ export function PlaybackProvider({ children }: { children: React.ReactNode }) {
       isPlaying,
       durationMs,
       positionMs,
+      repeatMode,
       playSingle,
       playFromList,
       toggle,
@@ -216,6 +272,7 @@ export function PlaybackProvider({ children }: { children: React.ReactNode }) {
       next,
       prev,
       seekTo,
+      setRepeatMode,
     ]
   );
 

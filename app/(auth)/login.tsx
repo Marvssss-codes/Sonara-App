@@ -17,9 +17,16 @@ export default function Login() {
   useEffect(() => {
     (async () => {
       const { data } = await supa.auth.getSession();
-      if (data.session?.user) router.replace("/home"); // tabs group not in URL
+      if (data.session?.user) router.replace("/home");
     })();
   }, []);
+
+  function comingSoon(what: string) {
+    Alert.alert(
+      `${what} — coming soon`,
+      "We’re putting the final touches on this. For now, please continue with email and password."
+    );
+  }
 
   async function handleLogin() {
     if (!email || !pwd) return Alert.alert("Missing info", "Enter email & password.");
@@ -42,7 +49,7 @@ export default function Login() {
         <ScrollView contentContainerStyle={{ padding: 20, paddingTop: 28, paddingBottom: 32 }}>
           <View style={{ gap: 14 }}>
             <GlassInput icon="mail" placeholder="Email" keyboardType="email-address" autoCapitalize="none" value={email} onChangeText={setEmail} />
-<GlassInput icon="lock-closed" placeholder="Password" secure value={pwd} onChangeText={setPwd} />
+            <GlassInput icon="lock-closed" placeholder="Password" secure value={pwd} onChangeText={setPwd} />
           </View>
 
           <View style={{ alignItems: "flex-end", marginTop: 10 }}>
@@ -54,8 +61,8 @@ export default function Login() {
           <Divider text="OR" />
 
           <View style={{ gap: 10 }}>
-            <SocialButton kind="google" onPress={() => { /* TODO: Google OAuth */ }} />
-            <SocialButton kind="apple" onPress={() => { /* TODO: Apple OAuth */ }} />
+            <SocialButton kind="google" onPress={() => comingSoon("Sign in with Google")} />
+            <SocialButton kind="apple" onPress={() => comingSoon("Sign in with Apple")} />
           </View>
 
           <View style={{ alignItems: "center", marginTop: 18 }}>

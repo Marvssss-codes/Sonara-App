@@ -34,14 +34,13 @@ const ACCENT = "#8E59FF";
 
 const CATEGORIES = ["New Music", "Top", "Podcasts", "Free", "Artists", "Genres"];
 
-/* ---------- helpers ---------- */
+// ---- helpers ----
 const normalizeArt = (art: AudiusTrack["artwork"]) => {
   if (!art) return null;
   if (typeof art === "string") return art;
   return art["150x150"] || art["480x480"] || art["1000x1000"] || null;
 };
-
-const resolveStreamUrl = (id: string) => {
+const streamFor = (id: string) => {
   try {
     const fn = _streamUrlFor as unknown as (x: string) => string;
     if (typeof fn === "function") return String(fn(id));
@@ -49,15 +48,15 @@ const resolveStreamUrl = (id: string) => {
   return `https://discoveryprovider.audius.co/v1/tracks/${id}/stream?app_name=sonara`;
 };
 
-/* ---- Row (separate so hooks can be used) ---- */
+// Row (now pressable to play)
 function SearchRow({
   item,
   onAdd,
-  onPlay,
+  onPress,
 }: {
   item: AudiusTrack;
   onAdd: () => void;
-  onPlay: () => void;
+  onPress: () => void;
 }) {
   const [liked, setLiked] = useState(false);
   const artwork = normalizeArt(item.artwork);
@@ -78,7 +77,7 @@ function SearchRow({
 
   return (
     <Pressable
-      onPress={onPlay}
+      onPress={onPress}
       style={{
         flexDirection: "row",
         alignItems: "center",
@@ -86,12 +85,7 @@ function SearchRow({
         paddingRight: 8,
       }}
     >
-      <SafeImage
-        uri={artwork}
-        style={{ width: 72, height: 72, borderRadius: 10 }}
-        contentFit="cover"
-      />
-
+      <SafeImage uri={artwork} style={{ width: 72, height: 72, borderRadius: 10 }} contentFit="cover" />
       <View style={{ flex: 1, marginLeft: 12 }}>
         <Text style={{ color: "#fff", fontWeight: "800" }} numberOfLines={1}>
           {item.title}
@@ -144,11 +138,10 @@ function SearchRow({
   );
 }
 
-/* ---------- Screen ---------- */
 export default function Search() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const pb = usePlayback() as any;
+  const pb = usePlayback();
 
   const [q, setQ] = useState("");
   const [workingQ, setWorkingQ] = useState("");
@@ -259,31 +252,23 @@ export default function Search() {
     }
   };
 
-  /* ---- play helpers for this page ---- */
-  const playNow = async (t: AudiusTrack) => {
-    const playable = {
+  // NEW: Start playback with a list (so next/prev work)
+  const playFrom = async (list: AudiusTrack[], startIndex: number) => {
+    const mapped = list.map((t) => ({
       id: t.id,
       title: t.title,
       artist: t.user?.name || "Unknown",
       artwork: normalizeArt(t.artwork),
-      streamUrl: resolveStreamUrl(t.id),
-    };
-
-    if (typeof pb.loadAndPlay === "function") {
-      await pb.loadAndPlay(playable);
-    } else if (typeof pb.playSingle === "function") {
-      await pb.playSingle(playable, true);
-    } else if (typeof pb.playFromList === "function") {
-      await pb.playFromList([playable], 0, true);
-    }
-    // Navigate to the full player
+      streamUrl: streamFor(t.id),
+    }));
+    await pb.playFromList(mapped, Math.max(0, Math.min(mapped.length - 1, startIndex)), true);
     router.push({
       pathname: "/player",
       params: {
-        id: playable.id,
-        title: encodeURIComponent(playable.title),
-        artist: encodeURIComponent(playable.artist || "Unknown"),
-        artwork: encodeURIComponent(playable.artwork || ""),
+        id: mapped[startIndex].id,
+        title: encodeURIComponent(mapped[startIndex].title),
+        artist: encodeURIComponent(mapped[startIndex].artist || "Unknown"),
+        artwork: encodeURIComponent(mapped[startIndex].artwork || ""),
       },
     });
   };
@@ -396,11 +381,11 @@ export default function Search() {
               Results for “{workingQ}”
             </Text>
           }
-          renderItem={({ item }) => (
+          renderItem={({ item, index }) => (
             <SearchRow
               item={item}
               onAdd={() => openPicker(item)}
-              onPlay={() => playNow(item)}
+              onPress={() => playFrom(results, index)}
             />
           )}
         />
@@ -414,11 +399,11 @@ export default function Search() {
           }}
           ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
           ListHeaderComponent={<SectionHeader title="Top Searched Songs" action="See All" />}
-          renderItem={({ item }) => (
+          renderItem={({ item, index }) => (
             <SearchRow
               item={item}
               onAdd={() => openPicker(item)}
-              onPlay={() => playNow(item)}
+              onPress={() => playFrom(topSearched, index)}
             />
           )}
           ListFooterComponent={
@@ -439,11 +424,10 @@ export default function Search() {
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={{ gap: 10 }}
               >
-                {hotTrending.map((t) => (
+                {hotTrending.map((t, i) => (
                   <Pressable
                     key={t.id}
-                    onPress={() => playNow(t)}
-                    onLongPress={() => openPicker(t)}
+                    onPress={() => playFrom(hotTrending, i)}
                     style={{
                       width: 180,
                       borderRadius: 14,
@@ -464,9 +448,6 @@ export default function Search() {
                       </Text>
                       <Text style={{ color: SUBTLE, fontSize: 12 }} numberOfLines={1}>
                         {t.user?.name || "Unknown"}
-                      </Text>
-                      <Text style={{ color: SUBTLE, fontSize: 10, marginTop: 2 }}>
-                        Tap to play • Long-press to add
                       </Text>
                     </View>
                   </Pressable>
@@ -565,10 +546,7 @@ export default function Search() {
             </Pressable>
           </View>
 
-          <Pressable
-            onPress={() => setPickerOpen(false)}
-            style={{ alignSelf: "flex-end", marginTop: 12 }}
-          >
+          <Pressable onPress={() => setPickerOpen(false)} style={{ alignSelf: "flex-end", marginTop: 12 }}>
             <Text style={{ color: SUBTLE }}>Close</Text>
           </Pressable>
         </View>
